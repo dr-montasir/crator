@@ -9,7 +9,7 @@ homepage = "https://github.com/dr-montasir/crator"
 repository = "https://github.com/dr-montasir/crator"
 readme = "README.md"
 keywords = ["crate", "label", "badge", "version", "downloads"]
-categories = ["development_tools", "HTTP_client", "API_bindings"]
+categories = ["development_tools", "http_client", "api_bindings"]
 
 [dependencies]
 tokio = { version = "1.49.0", features = ["full"] }
