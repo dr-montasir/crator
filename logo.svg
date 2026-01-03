@@ -1,0 +1,6 @@
+<svg width="120" height="120" xmlns="http://www.w3.org/2000/svg">
+  <!-- Draw the letter C -->
+  <text x="48%" y="62%" dominant-baseline="middle" text-anchor="middle" font-size="120" font-family="Arial" fill="#ea580c" stroke="#000" stroke-width="2">C</text>
+  <!-- Draw the letter R inside C -->
+  <text x="50%" y="56%" dominant-baseline="middle" text-anchor="middle" font-size="50" font-family="Arial" fill="#555555" font-weight="bold">R</text>
+</svg>
