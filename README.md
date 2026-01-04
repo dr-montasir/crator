@@ -27,6 +27,28 @@
 
 This library offers core functions to retrieve crate metadata from crates.io via raw TCP/TLS connections, process the JSON response, and present the data in a user-friendly format.
 
+## Installation
+
+To include `crator` in your Rust project, run:
+
+```shell
+cargo add crator
+```
+
+**Note:** If you are creating a new project or your project does not already include `tokio` as a dependency, you also need to add `tokio` to enable asynchronous features:
+
+```shell
+cargo add tokio
+```
+
+Or
+
+```shell
+cargo add tokio
+```
+
+**This ensures that the project has the necessary asynchronous runtime support to use functions like `crate_data`.**
+
 ## Key Components
 
 - **CrateInfo**: Struct holding the latest version and download count.
@@ -50,11 +72,16 @@ fn main() {
     let crate_info = rt.block_on(async {
         crate_data(crate_name).await
     }).unwrap();
-    println!("Latest version: v{}", crate_info.latest);
-    println!("Downloads: {}", crate_info.downloads);
+    println!(
+        "Latest: v{}, Downloads: {}, License: {}", 
+        crate_info.latest, crate_info.downloads, crate_info.license
+    );
     // Result (e.g.):
     // crate_info.latest: v0.1.0
     // crate_info.downloads: 5.9k
+    // crate_info.downloads: 11
+    // crate_info.license: MIT OR Apache-2.0
+    // Latest: v0.1.0, Downloads: 11, License: MIT OR Apache-2.0
 }
 ```
 
@@ -67,12 +94,13 @@ use tokio::runtime::Runtime;
 fn main() {
     // Create a new Tokio runtime
     let rt = Runtime::new().unwrap();
-    let crate_name = "crator";
+    let crate_name = "fluxor";
     let crate_info = rt.block_on(async {
         crate_data(crate_name).await
     }).expect("Failed to get crate info");
     println!("Latest version: {}", crate_info.latest);
     println!("Downloads: {}", crate_info.downloads);
+    println!("License: {}", crate_info.license);
 }
 ```
 
@@ -85,15 +113,17 @@ use tokio::runtime::Runtime;
 fn main() {
     // Create a new Tokio runtime
     let rt = Runtime::new().unwrap();
-    let crate_name = "crator";
+    let crate_name = "serde";
     let crate_info = rt.block_on(async {
         crate_data(crate_name).await
     }).unwrap_or_else(|err| {
         eprintln!("Error fetching crate data: {}", err);
         std::process::exit(1);
     });
-    println!("Latest version: {}", crate_info.latest);
-    println!("Downloads: {}", crate_info.downloads);
+    println!(
+        "Latest: v{}, Downloads: {}, License: {}", 
+        crate_info.latest, crate_info.downloads, crate_info.license
+    );
 }
 ```
 
@@ -106,7 +136,7 @@ use tokio::runtime::Runtime;
 fn main() {
     // Create a new Tokio runtime
     let rt = Runtime::new().unwrap();
-    let crate_name = "crator";
+    let crate_name = "tokio";
     let crate_info = match rt.block_on(async {
         match crate_data(crate_name).await {
             Ok(info) => Ok(info),
@@ -122,8 +152,10 @@ fn main() {
             return;
         }
     };
-    println!("Latest version: {}", crate_info.latest);
-    println!("Downloads: {}", crate_info.downloads);
+    println!(
+        "Latest: v{}, Downloads: {}, License: {}", 
+        crate_info.latest, crate_info.downloads, crate_info.license
+    );
 }
 ```
 
@@ -134,9 +166,12 @@ use crator::crate_data;
 
 #[tokio::main]
 async fn main() {
-    let crate_name = "serde";
+    let crate_name = "crator";
     let info = crate_data(crate_name).await.unwrap();
-    println!("Latest: {}, Downloads: {}", info.latest, info.downloads);
+    println!(
+        "Latest: v{}, Downloads: {}, License: {}", 
+        info.latest, info.downloads, info.license
+    );
 }
 ```
 
@@ -147,9 +182,12 @@ use crator::crate_data;
 
 #[tokio::main]
 async fn main() {
-    let crate_name = "tokio";
+    let crate_name = "fluxor";
     let info = crate_data(crate_name).await.expect("Failed to fetch crate info");
-    println!("Latest: {}, Downloads: {}", info.latest, info.downloads);
+    println!(
+        "Latest: v{}, Downloads: {}, License: {}", 
+        info.latest, info.downloads, info.license
+    );
 }
 ```
 
@@ -160,24 +198,26 @@ use crator::crate_data;
 
 #[tokio::main]
 async fn main() {
-    let crate_name = "crator";
+    let crate_name = "serde";
     let crate_info = crate_data(crate_name).await.unwrap_or_else(|err| {
         eprintln!("Error fetching crate data: {}", err);
         std::process::exit(1);
     });
-    println!("Latest version: {}", crate_info.latest);
-    println!("Downloads: {}", crate_info.downloads);
+    println!(
+        "Latest: v{}, Downloads: {}, License: {}", 
+        crate_info.latest, crate_info.downloads, crate_info.license
+    );
 }
 ```
 
-### Example 7: Basic usage with `tokio::main` and `match`
+### Example 8: Basic usage with `tokio::main` and `match`
 
 ```rust
 use crator::crate_data;
 
 #[tokio::main]
 async fn main() {
-    let crate_name = "crator";
+    let crate_name = "tokio";
     let crate_info = match crate_data(crate_name).await {
         Ok(info) => info,
         Err(err) => {
@@ -185,8 +225,10 @@ async fn main() {
             return;
         }
     };
-    println!("Latest version: {}", crate_info.latest);
-    println!("Downloads: {}", crate_info.downloads);
+    println!(
+        "Latest: v{}, Downloads: {}, License: {}", 
+        crate_info.latest, crate_info.downloads, crate_info.license
+    );
 }
 ```
 

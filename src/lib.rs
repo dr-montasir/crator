@@ -17,6 +17,8 @@ pub struct CrateInfo {
     pub latest: String,
     /// Formatted number of downloads
     pub downloads: String,
+    /// License of the crate
+    pub license: String,
 }
 
 /// Formats large numbers into human-readable strings.
@@ -127,8 +129,16 @@ async fn fetch_crate_data(url: &str) -> Result<Value, Box<dyn Error>> {
 ///     let crate_info = rt.block_on(async {
 ///         crate_data(crate_name).await
 ///     }).unwrap();
-///     println!("Latest version: {}", crate_info.latest);
-///     println!("Downloads: {}", crate_info.downloads);
+///     println!(
+///         "Latest: v{}, Downloads: {}, License: {}",
+///         crate_info.latest, crate_info.downloads, crate_info.license
+///     );
+///     // Result (e.g.):
+///     // crate_info.latest: v0.1.0
+///     // crate_info.downloads: 5.9k
+///     // crate_info.downloads: 11
+///     // crate_info.license: MIT OR Apache-2.0
+///     // Latest: v0.1.0, Downloads: 11, License: MIT OR Apache-2.0
 /// }
 /// ```
 /// 
@@ -141,12 +151,13 @@ async fn fetch_crate_data(url: &str) -> Result<Value, Box<dyn Error>> {
 /// fn main() {
 ///     // Create a new Tokio runtime
 ///     let rt = Runtime::new().unwrap();
-///     let crate_name = "crator";
+///     let crate_name = "fluxor";
 ///     let crate_info = rt.block_on(async {
 ///         crate_data(crate_name).await
 ///     }).expect("Failed to get crate info");
 ///     println!("Latest version: {}", crate_info.latest);
 ///     println!("Downloads: {}", crate_info.downloads);
+///     println!("License: {}", crate_info.license);
 /// }
 /// ```
 /// 
@@ -159,15 +170,17 @@ async fn fetch_crate_data(url: &str) -> Result<Value, Box<dyn Error>> {
 /// fn main() {
 ///     // Create a new Tokio runtime
 ///     let rt = Runtime::new().unwrap();
-///     let crate_name = "crator";
+///     let crate_name = "serde";
 ///     let crate_info = rt.block_on(async {
 ///         crate_data(crate_name).await
 ///     }).unwrap_or_else(|err| {
 ///         eprintln!("Error fetching crate data: {}", err);
 ///         std::process::exit(1);
 ///     });
-///     println!("Latest version: {}", crate_info.latest);
-///     println!("Downloads: {}", crate_info.downloads);
+///     println!(
+///         "Latest: v{}, Downloads: {}, License: {}",
+///         crate_info.latest, crate_info.downloads, crate_info.license
+///     );
 /// }
 /// ```
 /// 
@@ -180,7 +193,7 @@ async fn fetch_crate_data(url: &str) -> Result<Value, Box<dyn Error>> {
 /// fn main() {
 ///     // Create a new Tokio runtime
 ///     let rt = Runtime::new().unwrap();
-///     let crate_name = "crator";
+///     let crate_name = "tokio";
 ///     let crate_info = match rt.block_on(async {
 ///         match crate_data(crate_name).await {
 ///             Ok(info) => Ok(info),
@@ -196,8 +209,10 @@ async fn fetch_crate_data(url: &str) -> Result<Value, Box<dyn Error>> {
 ///             return;
 ///         }
 ///     };
-///     println!("Latest version: {}", crate_info.latest);
-///     println!("Downloads: {}", crate_info.downloads);
+///     println!(
+///         "Latest: v{}, Downloads: {}, License: {}",
+///         crate_info.latest, crate_info.downloads, crate_info.license
+///     );
 /// }
 /// ```
 /// 
@@ -211,9 +226,11 @@ async fn fetch_crate_data(url: &str) -> Result<Value, Box<dyn Error>> {
 /// #[tokio::main]
 /// async fn main() {
 ///     let crate_name = "crator";
-///     let crate_info = crate_data(crate_name).await.unwrap();
-///     println!("Latest version: {}", crate_info.latest);
-///     println!("Downloads: {}", crate_info.downloads);
+///     let info = crate_data(crate_name).await.unwrap();
+///     println!(
+///         "Latest: v{}, Downloads: {}, License: {}",
+///         info.latest, info.downloads, info.license
+///     );
 /// }
 /// ```
 /// 
@@ -224,10 +241,12 @@ async fn fetch_crate_data(url: &str) -> Result<Value, Box<dyn Error>> {
 ///
 /// #[tokio::main]
 /// async fn main() {
-///     let crate_name = "crator";
-///     let crate_info = crate_data(crate_name).await.expect("Failed to get crate info");
-///     println!("Latest version: {}", crate_info.latest);
-///     println!("Downloads: {}", crate_info.downloads);
+///     let crate_name = "fluxor";
+///     let info = crate_data(crate_name).await.expect("Failed to get crate info");
+///     println!(
+///         "Latest: v{}, Downloads: {}, License: {}",
+///         info.latest, info.downloads, info.license
+///     );
 /// }
 /// ```
 /// 
@@ -238,13 +257,15 @@ async fn fetch_crate_data(url: &str) -> Result<Value, Box<dyn Error>> {
 ///
 /// #[tokio::main]
 /// async fn main() {
-///     let crate_name = "crator";
+///     let crate_name = "serde";
 ///     let crate_info = crate_data(crate_name).await.unwrap_or_else(|err| {
 ///         eprintln!("Error fetching crate data: {}", err);
 ///         std::process::exit(1);
 ///     });
-///     println!("Latest version: {}", crate_info.latest);
-///     println!("Downloads: {}", crate_info.downloads);
+///     println!(
+///         "Latest: v{}, Downloads: {}, License: {}",
+///         crate_info.latest, crate_info.downloads, crate_info.license
+///     );
 /// }
 /// ```
 /// 
@@ -255,7 +276,7 @@ async fn fetch_crate_data(url: &str) -> Result<Value, Box<dyn Error>> {
 ///
 /// #[tokio::main]
 /// async fn main() {
-///     let crate_name = "crator";
+///     let crate_name = "tokio";
 ///     let crate_info = match crate_data(crate_name).await {
 ///         Ok(info) => info,
 ///         Err(err) => {
@@ -263,8 +284,10 @@ async fn fetch_crate_data(url: &str) -> Result<Value, Box<dyn Error>> {
 ///             return;
 ///         }
 ///     };
-///     println!("Latest version: {}", crate_info.latest);
-///     println!("Downloads: {}", crate_info.downloads);
+///     println!(
+///         "Latest: v{}, Downloads: {}, License: {}",
+///         crate_info.latest, crate_info.downloads, crate_info.license
+///     );
 /// }
 /// ```
 pub async fn crate_data(crate_name: &str) -> Result<CrateInfo, Box<dyn Error>> {
@@ -280,5 +303,17 @@ pub async fn crate_data(crate_name: &str) -> Result<CrateInfo, Box<dyn Error>> {
         .as_u64()
         .unwrap_or(0);
 
-    Ok(CrateInfo { latest, downloads: format_number(downloads) })
+    // Get the first version object in the versions array
+    let version_obj = json_value["versions"]
+        .as_array()
+        .and_then(|arr| arr.first())
+        .unwrap_or(&serde_json::Value::Null);
+
+    // Extract license from that version object
+    let license = version_obj["license"]
+        .as_str()
+        .unwrap_or("N/A")
+        .to_string();
+
+    Ok(CrateInfo { latest, downloads: format_number(downloads), license })
 }
