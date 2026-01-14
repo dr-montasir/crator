@@ -73,12 +73,13 @@ fn main() {
         crate_data(crate_name).await
     }).unwrap();
     println!(
-        "Latest: v{}, Downloads: {}, License: {}", 
-        crate_info.latest, crate_info.downloads, crate_info.license
+        "Latest: v{}, Downloads: {}, Total Downloads: {}, License: {}", 
+        crate_info.latest, crate_info.downloads, crate_info.total_downloads, crate_info.license
     );
     // Result (e.g.):
     // crate_info.latest: v0.1.0
     // crate_info.downloads: 5.9k
+    // crate_info.total_downloads: 5884
     // crate_info.downloads: 11
     // crate_info.license: MIT OR Apache-2.0
     // Latest: v0.1.0, Downloads: 11, License: MIT OR Apache-2.0
@@ -121,8 +122,8 @@ fn main() {
         std::process::exit(1);
     });
     println!(
-        "Latest: v{}, Downloads: {}, License: {}", 
-        crate_info.latest, crate_info.downloads, crate_info.license
+        "Latest: v{}, Downloads: {}, Total Downloads: {}, License: {}",
+        crate_info.latest, crate_info.downloads, crate_info.total_downloads, crate_info.license
     );
 }
 ```
@@ -153,8 +154,8 @@ fn main() {
         }
     };
     println!(
-        "Latest: v{}, Downloads: {}, License: {}", 
-        crate_info.latest, crate_info.downloads, crate_info.license
+        "Latest: v{}, Downloads: {}, Total Downloads: {}, License: {}",
+        crate_info.latest, crate_info.downloads, crate_info.total_downloads, crate_info.license
     );
 }
 ```
@@ -169,8 +170,8 @@ async fn main() {
     let crate_name = "crator";
     let info = crate_data(crate_name).await.unwrap();
     println!(
-        "Latest: v{}, Downloads: {}, License: {}", 
-        info.latest, info.downloads, info.license
+        "Latest: v{}, Downloads: {}, Total Downloads: {}, License: {}",
+        info.latest, info.downloads, info.total_downloads, info.license
     );
 }
 ```
@@ -185,8 +186,8 @@ async fn main() {
     let crate_name = "fluxor";
     let info = crate_data(crate_name).await.expect("Failed to fetch crate info");
     println!(
-        "Latest: v{}, Downloads: {}, License: {}", 
-        info.latest, info.downloads, info.license
+        "Latest: v{}, Downloads: {}, Total Downloads: {}, License: {}",
+        info.latest, info.downloads, info.total_downloads, info.license
     );
 }
 ```
@@ -204,8 +205,8 @@ async fn main() {
         std::process::exit(1);
     });
     println!(
-        "Latest: v{}, Downloads: {}, License: {}", 
-        crate_info.latest, crate_info.downloads, crate_info.license
+        "Latest: v{}, Downloads: {}, Total Downloads: {}, License: {}",
+        crate_info.latest, crate_info.downloads, crate_info.total_downloads, crate_info.license
     );
 }
 ```
@@ -226,8 +227,8 @@ async fn main() {
         }
     };
     println!(
-        "Latest: v{}, Downloads: {}, License: {}", 
-        crate_info.latest, crate_info.downloads, crate_info.license
+        "Latest: v{}, Downloads: {}, Total Downloads: {}, License: {}",
+        crate_info.latest, crate_info.downloads, crate_info.total_downloads, crate_info.license
     );
 }
 ```

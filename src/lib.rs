@@ -17,6 +17,8 @@ pub struct CrateInfo {
     pub latest: String,
     /// Formatted number of downloads
     pub downloads: String,
+    /// Total downloads
+    pub total_downloads: u64,
     /// License of the crate
     pub license: String,
 }
@@ -130,8 +132,8 @@ async fn fetch_crate_data(url: &str) -> Result<Value, Box<dyn Error>> {
 ///         crate_data(crate_name).await
 ///     }).unwrap();
 ///     println!(
-///         "Latest: v{}, Downloads: {}, License: {}",
-///         crate_info.latest, crate_info.downloads, crate_info.license
+///         "Latest: v{}, Downloads: {}, Total Downloads: {}, License: {}",
+///         crate_info.latest, crate_info.downloads, crate_info.total_downloads, crate_info.license
 ///     );
 ///     // Result (e.g.):
 ///     // crate_info.latest: v0.1.0
@@ -157,6 +159,7 @@ async fn fetch_crate_data(url: &str) -> Result<Value, Box<dyn Error>> {
 ///     }).expect("Failed to get crate info");
 ///     println!("Latest version: {}", crate_info.latest);
 ///     println!("Downloads: {}", crate_info.downloads);
+///     println!("Total Downloads: {}", crate_info.total_downloads);
 ///     println!("License: {}", crate_info.license);
 /// }
 /// ```
@@ -178,8 +181,8 @@ async fn fetch_crate_data(url: &str) -> Result<Value, Box<dyn Error>> {
 ///         std::process::exit(1);
 ///     });
 ///     println!(
-///         "Latest: v{}, Downloads: {}, License: {}",
-///         crate_info.latest, crate_info.downloads, crate_info.license
+///         "Latest: v{}, Downloads: {}, Total Downloads: {}, License: {}",
+///         crate_info.latest, crate_info.downloads, crate_info.total_downloads, crate_info.license
 ///     );
 /// }
 /// ```
@@ -210,8 +213,8 @@ async fn fetch_crate_data(url: &str) -> Result<Value, Box<dyn Error>> {
 ///         }
 ///     };
 ///     println!(
-///         "Latest: v{}, Downloads: {}, License: {}",
-///         crate_info.latest, crate_info.downloads, crate_info.license
+///         "Latest: v{}, Downloads: {}, Total Downloads: {}, License: {}",
+///         crate_info.latest, crate_info.downloads, crate_info.total_downloads, crate_info.license
 ///     );
 /// }
 /// ```
@@ -228,8 +231,8 @@ async fn fetch_crate_data(url: &str) -> Result<Value, Box<dyn Error>> {
 ///     let crate_name = "crator";
 ///     let info = crate_data(crate_name).await.unwrap();
 ///     println!(
-///         "Latest: v{}, Downloads: {}, License: {}",
-///         info.latest, info.downloads, info.license
+///         "Latest: v{}, Downloads: {}, Total Downloads: {}, License: {}",
+///         info.latest, info.downloads, info.total_downloads, info.license
 ///     );
 /// }
 /// ```
@@ -244,8 +247,8 @@ async fn fetch_crate_data(url: &str) -> Result<Value, Box<dyn Error>> {
 ///     let crate_name = "fluxor";
 ///     let info = crate_data(crate_name).await.expect("Failed to get crate info");
 ///     println!(
-///         "Latest: v{}, Downloads: {}, License: {}",
-///         info.latest, info.downloads, info.license
+///         "Latest: v{}, Downloads: {}, Total Downloads: {}, License: {}",
+///         info.latest, info.downloads, info.total_downloads, info.license
 ///     );
 /// }
 /// ```
@@ -263,8 +266,8 @@ async fn fetch_crate_data(url: &str) -> Result<Value, Box<dyn Error>> {
 ///         std::process::exit(1);
 ///     });
 ///     println!(
-///         "Latest: v{}, Downloads: {}, License: {}",
-///         crate_info.latest, crate_info.downloads, crate_info.license
+///         "Latest: v{}, Downloads: {}, Total Downloads: {}, License: {}",
+///         crate_info.latest, crate_info.downloads, crate_info.total_downloads, crate_info.license
 ///     );
 /// }
 /// ```
@@ -285,8 +288,8 @@ async fn fetch_crate_data(url: &str) -> Result<Value, Box<dyn Error>> {
 ///         }
 ///     };
 ///     println!(
-///         "Latest: v{}, Downloads: {}, License: {}",
-///         crate_info.latest, crate_info.downloads, crate_info.license
+///         "Latest: v{}, Downloads: {}, Total Downloads: {}, License: {}",
+///         crate_info.latest, crate_info.downloads, crate_info.total_downloads, crate_info.license
 ///     );
 /// }
 /// ```
@@ -315,5 +318,5 @@ pub async fn crate_data(crate_name: &str) -> Result<CrateInfo, Box<dyn Error>> {
         .unwrap_or("N/A")
         .to_string();
 
-    Ok(CrateInfo { latest, downloads: format_number(downloads), license })
+    Ok(CrateInfo { latest, downloads: format_number(downloads), total_downloads: downloads, license })
 }
