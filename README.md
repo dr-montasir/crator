@@ -41,10 +41,10 @@ cargo add crator
 cargo add tokio
 ```
 
-Or
+Or try
 
 ```shell
-cargo add tokio
+cargo add tokio --features full
 ```
 
 **This ensures that the project has the necessary asynchronous runtime support to use functions like `crate_data`.**
