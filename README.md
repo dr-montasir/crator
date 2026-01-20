@@ -73,16 +73,17 @@ fn main() {
         crate_data(crate_name).await
     }).unwrap();
     println!(
-        "Latest: v{}, Downloads: {}, Total Downloads: {}, License: {}", 
-        crate_info.latest, crate_info.downloads, crate_info.total_downloads, crate_info.license
+        "Latest: v{}, Downloads: {}, Total Downloads: {}, Versions: {}, [D/V] Ratio: {}, License: {}",
+        crate_info.latest, crate_info.downloads, crate_info.total_downloads, crate_info.versions, crate_info.d_v_ratio, crate_info.license
     );
     // Result (e.g.):
     // crate_info.latest: v0.1.0
     // crate_info.downloads: 5.9k
-    // crate_info.total_downloads: 5884
     // crate_info.downloads: 11
+    // crate_info.versions: 1
+    // crate_info.d_v_ratio: 11
     // crate_info.license: MIT OR Apache-2.0
-    // Latest: v0.1.0, Downloads: 11, License: MIT OR Apache-2.0
+    // Latest: v0.1.0, Downloads: 11, Versions: 1, [D/V] Ratio: 11, License: MIT OR Apache-2.0
 }
 ```
 
@@ -101,6 +102,8 @@ fn main() {
     }).expect("Failed to get crate info");
     println!("Latest version: {}", crate_info.latest);
     println!("Downloads: {}", crate_info.downloads);
+    println!("Versions: {}", crate_info.versions);
+    println!("[D/V] Ratio: {}", crate_info.d_v_ratio);
     println!("License: {}", crate_info.license);
 }
 ```
@@ -122,8 +125,8 @@ fn main() {
         std::process::exit(1);
     });
     println!(
-        "Latest: v{}, Downloads: {}, Total Downloads: {}, License: {}",
-        crate_info.latest, crate_info.downloads, crate_info.total_downloads, crate_info.license
+        "Latest: v{}, Downloads: {}, Total Downloads: {}, Versions: {}, [D/V] Ratio: {}, License: {}",
+        crate_info.latest, crate_info.downloads, crate_info.total_downloads, crate_info.versions, crate_info.d_v_ratio, crate_info.license
     );
 }
 ```
@@ -154,8 +157,8 @@ fn main() {
         }
     };
     println!(
-        "Latest: v{}, Downloads: {}, Total Downloads: {}, License: {}",
-        crate_info.latest, crate_info.downloads, crate_info.total_downloads, crate_info.license
+        "Latest: v{}, Downloads: {}, Total Downloads: {}, Versions: {}, [D/V] Ratio: {}, License: {}",
+        crate_info.latest, crate_info.downloads, crate_info.total_downloads, crate_info.versions, crate_info.d_v_ratio, crate_info.license
     );
 }
 ```
@@ -170,8 +173,8 @@ async fn main() {
     let crate_name = "crator";
     let info = crate_data(crate_name).await.unwrap();
     println!(
-        "Latest: v{}, Downloads: {}, Total Downloads: {}, License: {}",
-        info.latest, info.downloads, info.total_downloads, info.license
+        "Latest: v{}, Downloads: {}, Total Downloads: {}, Versions: {}, [D/V] Ratio: {}, License: {}",
+        info.latest, info.downloads, info.total_downloads, info.versions, info.d_v_ratio, info.license
     );
 }
 ```
@@ -186,8 +189,8 @@ async fn main() {
     let crate_name = "fluxor";
     let info = crate_data(crate_name).await.expect("Failed to fetch crate info");
     println!(
-        "Latest: v{}, Downloads: {}, Total Downloads: {}, License: {}",
-        info.latest, info.downloads, info.total_downloads, info.license
+        "Latest: v{}, Downloads: {}, Total Downloads: {}, Versions: {}, [D/V] Ratio: {}, License: {}",
+        info.latest, info.downloads, info.total_downloads, info.versions, info.d_v_ratio, info.license
     );
 }
 ```
@@ -205,8 +208,8 @@ async fn main() {
         std::process::exit(1);
     });
     println!(
-        "Latest: v{}, Downloads: {}, Total Downloads: {}, License: {}",
-        crate_info.latest, crate_info.downloads, crate_info.total_downloads, crate_info.license
+        "Latest: v{}, Downloads: {}, Total Downloads: {}, Versions: {}, [D/V] Ratio: {}, License: {}",
+        crate_info.latest, crate_info.downloads, crate_info.total_downloads, crate_info.versions, crate_info.d_v_ratio, crate_info.license
     );
 }
 ```
@@ -227,8 +230,8 @@ async fn main() {
         }
     };
     println!(
-        "Latest: v{}, Downloads: {}, Total Downloads: {}, License: {}",
-        crate_info.latest, crate_info.downloads, crate_info.total_downloads, crate_info.license
+        "Latest: v{}, Downloads: {}, Total Downloads: {}, Versions: {}, [D/V] Ratio: {}, License: {}",
+        crate_info.latest, crate_info.downloads, crate_info.total_downloads, crate_info.versions, crate_info.d_v_ratio, crate_info.license
     );
 }
 ```
