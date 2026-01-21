@@ -23,6 +23,9 @@ pub struct CrateInfo {
     pub versions: u64,
     /// License of the crate
     pub license: String,
+    // Date/Time
+    pub created_at: String,
+    pub updated_at: String,
 }
 
 /// Formats large numbers into human-readable strings.
@@ -293,8 +296,8 @@ async fn fetch_crate_data(url: &str) -> Result<Value, Box<dyn Error>> {
 ///         }
 ///     };
 ///     println!(
-///         "Latest: v{}, Downloads: {}, Total Downloads: {}, Versions: {}, License: {}",
-///         crate_info.latest, crate_info.downloads, crate_info.total_downloads, crate_info.versions, crate_info.license
+///         "Latest: v{}, Downloads: {}, Total Downloads: {}, Versions: {}, License: {} Created At: {}, Updated At: {}",
+///         crate_info.latest, crate_info.downloads, crate_info.total_downloads, crate_info.versions, crate_info.license, crate_info.created_at, crate_info.updated_at
 ///     );
 /// }
 /// ```
@@ -328,5 +331,15 @@ pub async fn crate_data(crate_name: &str) -> Result<CrateInfo, Box<dyn Error>> {
         .unwrap_or("N/A")
         .to_string();
 
-    Ok(CrateInfo { latest, downloads: format_number(downloads), total_downloads: downloads, versions: versions, license })
+    let created_at = json_value["crate"]["created_at"]
+        .as_str()
+        .unwrap_or("N/A")
+        .to_string();
+
+    let updated_at =  json_value["crate"]["updated_at"]
+        .as_str()
+        .unwrap_or("N/A")
+        .to_string();
+
+    Ok(CrateInfo { latest, downloads: format_number(downloads), total_downloads: downloads, versions: versions, license, created_at, updated_at })
 }

@@ -229,8 +229,8 @@ async fn main() {
         }
     };
     println!(
-        "Latest: v{}, Downloads: {}, Total Downloads: {}, Versions: {}, License: {}",
-        crate_info.latest, crate_info.downloads, crate_info.total_downloads, crate_info.versions, crate_info.license
+        "Latest: v{}, Downloads: {}, Total Downloads: {}, Versions: {}, License: {} Created At: {}, Updated At: {}", 
+        crate_info.latest, crate_info.downloads, crate_info.total_downloads, crate_info.versions, crate_info.license, crate_info.created_at, crate_info.updated_at
     );
 }
 ```
