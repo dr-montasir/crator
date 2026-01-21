@@ -21,8 +21,6 @@ pub struct CrateInfo {
     pub total_downloads: u64,
     // Total Versions
     pub versions: u64,
-    // Ratio of total downloads to total versions (D/V)
-    pub d_v_ratio: u64,
     /// License of the crate
     pub license: String,
 }
@@ -136,17 +134,16 @@ async fn fetch_crate_data(url: &str) -> Result<Value, Box<dyn Error>> {
 ///         crate_data(crate_name).await
 ///     }).unwrap();
 ///     println!(
-///         "Latest: v{}, Downloads: {}, Total Downloads: {}, Versions: {}, [D/V] Ratio: {}, License: {}",
-///         crate_info.latest, crate_info.downloads, crate_info.total_downloads, crate_info.versions, crate_info.d_v_ratio, crate_info.license
+///         "Latest: v{}, Downloads: {}, Total Downloads: {}, Versions: {}, License: {}",
+///         crate_info.latest, crate_info.downloads, crate_info.total_downloads, crate_info.versions, crate_info.license
 ///     );
 ///     // Result (e.g.):
 ///     // crate_info.latest: v0.1.0
 ///     // crate_info.downloads: 5.9k
 ///     // crate_info.downloads: 11
 ///     // crate_info.versions: 1
-///     // crate_info.d_v_ratio: 11
 ///     // crate_info.license: MIT OR Apache-2.0
-///     // Latest: v0.1.0, Downloads: 11, Versions: 1, [D/V] Ratio: 11, License: MIT OR Apache-2.0
+///     // Latest: v0.1.0, Downloads: 11, Versions: 1, License: MIT OR Apache-2.0
 /// }
 /// ```
 /// 
@@ -167,7 +164,7 @@ async fn fetch_crate_data(url: &str) -> Result<Value, Box<dyn Error>> {
 ///     println!("Downloads: {}", crate_info.downloads);
 ///     println!("Total Downloads: {}", crate_info.total_downloads);
 ///     println!("Versions: {}", crate_info.versions);
-///     println!("[D/V] Ratio: {}", crate_info.d_v_ratio);
+///     println!("Crate Health Index: {}", crate_info.total_downloads / crate_info.versions);
 ///     println!("License: {}", crate_info.license);
 /// }
 /// ```
@@ -189,8 +186,8 @@ async fn fetch_crate_data(url: &str) -> Result<Value, Box<dyn Error>> {
 ///         std::process::exit(1);
 ///     });
 ///     println!(
-///         "Latest: v{}, Downloads: {}, Total Downloads: {}, Versions: {}, [D/V] Ratio: {}, License: {}",
-///         crate_info.latest, crate_info.downloads, crate_info.total_downloads, crate_info.versions, crate_info.d_v_ratio, crate_info.license
+///         "Latest: v{}, Downloads: {}, Total Downloads: {}, Versions: {}, License: {}",
+///         crate_info.latest, crate_info.downloads, crate_info.total_downloads, crate_info.versions, crate_info.license
 ///     );
 /// }
 /// ```
@@ -221,8 +218,8 @@ async fn fetch_crate_data(url: &str) -> Result<Value, Box<dyn Error>> {
 ///         }
 ///     };
 ///     println!(
-///         "Latest: v{}, Downloads: {}, Total Downloads: {}, Versions: {}, [D/V] Ratio: {}, License: {}",
-///         crate_info.latest, crate_info.downloads, crate_info.total_downloads, crate_info.versions, crate_info.d_v_ratio, crate_info.license
+///         "Latest: v{}, Downloads: {}, Total Downloads: {}, Versions: {}, License: {}",
+///         crate_info.latest, crate_info.downloads, crate_info.total_downloads, crate_info.versions, crate_info.license
 ///     );
 /// }
 /// ```
@@ -239,8 +236,8 @@ async fn fetch_crate_data(url: &str) -> Result<Value, Box<dyn Error>> {
 ///     let crate_name = "crator";
 ///     let info = crate_data(crate_name).await.unwrap();
 ///     println!(
-///         "Latest: v{}, Downloads: {}, Total Downloads: {}, Versions: {}, [D/V] Ratio: {}, License: {}",
-///         info.latest, info.downloads, info.total_downloads, info.versions, info.d_v_ratio, info.license
+///         "Latest: v{}, Downloads: {}, Total Downloads: {}, Versions: {}, License: {}",
+///         info.latest, info.downloads, info.total_downloads, info.versions, info.license
 ///     );
 /// }
 /// ```
@@ -255,8 +252,8 @@ async fn fetch_crate_data(url: &str) -> Result<Value, Box<dyn Error>> {
 ///     let crate_name = "fluxor";
 ///     let info = crate_data(crate_name).await.expect("Failed to get crate info");
 ///     println!(
-///         "Latest: v{}, Downloads: {}, Total Downloads: {}, Versions: {}, [D/V] Ratio: {}, License: {}",
-///         info.latest, info.downloads, info.total_downloads, info.versions, info.d_v_ratio, info.license
+///         "Latest: v{}, Downloads: {}, Total Downloads: {}, Versions: {}, License: {}",
+///         info.latest, info.downloads, info.total_downloads, info.versions, info.license
 ///     );
 /// }
 /// ```
@@ -274,8 +271,8 @@ async fn fetch_crate_data(url: &str) -> Result<Value, Box<dyn Error>> {
 ///         std::process::exit(1);
 ///     });
 ///     println!(
-///         "Latest: v{}, Downloads: {}, Total Downloads: {}, Versions: {}, [D/V] Ratio: {}, License: {}",
-///         crate_info.latest, crate_info.downloads, crate_info.total_downloads, crate_info.versions, crate_info.d_v_ratio, crate_info.license
+///         "Latest: v{}, Downloads: {}, Total Downloads: {}, Versions: {}, License: {}",
+///         crate_info.latest, crate_info.downloads, crate_info.total_downloads, crate_info.versions, crate_info.license
 ///     );
 /// }
 /// ```
@@ -296,8 +293,8 @@ async fn fetch_crate_data(url: &str) -> Result<Value, Box<dyn Error>> {
 ///         }
 ///     };
 ///     println!(
-///         "Latest: v{}, Downloads: {}, Total Downloads: {}, Versions: {}, [D/V] Ratio: {}, License: {}",
-///         crate_info.latest, crate_info.downloads, crate_info.total_downloads, crate_info.versions, crate_info.d_v_ratio, crate_info.license
+///         "Latest: v{}, Downloads: {}, Total Downloads: {}, Versions: {}, License: {}",
+///         crate_info.latest, crate_info.downloads, crate_info.total_downloads, crate_info.versions, crate_info.license
 ///     );
 /// }
 /// ```
@@ -331,5 +328,5 @@ pub async fn crate_data(crate_name: &str) -> Result<CrateInfo, Box<dyn Error>> {
         .unwrap_or("N/A")
         .to_string();
 
-    Ok(CrateInfo { latest, downloads: format_number(downloads), total_downloads: downloads, versions: versions, d_v_ratio: downloads / versions, license })
+    Ok(CrateInfo { latest, downloads: format_number(downloads), total_downloads: downloads, versions: versions, license })
 }
