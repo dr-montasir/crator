@@ -1,6 +1,6 @@
 [package]
 name = "crator"
-version = "0.6.0"
+version = "0.7.0"
 authors = ["Montasir Mirghani <contact@montasir.me>"]
 edition = "2024"
 description = "The CRATOR library offers core functions to retrieve crate metadata from crates.io via raw TCP/TLS connections, process the JSON response, and present the data in a user-friendly format."
@@ -12,11 +12,7 @@ keywords = ["crate", "label", "badge", "version", "downloads"]
 categories = ["development-tools", "parsing", "value-formatting", "api-bindings"]
 
 [dependencies]
-tokio = { version = "1.49.0", features = ["full"] }
-tokio-native-tls = "0.3.1"
 native-tls = "0.2.14"
-serde_json = "1.0.149"
-url = "2.5.8"
 
 [lib]
 name = "crator"

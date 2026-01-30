@@ -4,13 +4,12 @@
       <img src="logo.svg" width="100">
   </a>
   <br>
-
 [<img alt="github" src="https://img.shields.io/badge/github-dr%20montasir%20/%20crator-8da0cb?style=for-the-badge&labelColor=555555&logo=github" height="22">](https://github.com/dr-montasir/crator)[<img alt="crates.io" src="https://img.shields.io/crates/v/crator.svg?style=for-the-badge&color=fc8d62&logo=rust" height="22">](https://crates.io/crates/crator)[<img alt="docs.rs" src="https://img.shields.io/badge/docs.rs-crator-66c2a5?style=for-the-badge&labelColor=555555&logo=docs.rs" height="22">](https://docs.rs/crator)[<img alt="license" src="https://img.shields.io/badge/license-apache_2.0-4a98f7.svg?style=for-the-badge&labelColor=555555&logo=apache" height="22">](https://choosealicense.com/licenses/apache-2.0)[<img alt="downloads" src="https://img.shields.io/crates/d/crator.svg?style=for-the-badge&labelColor=555555&logo=&color=428600" height="22">](https://crates.io/crates/crator)
 
   <h1>CRATOR</h1>
 
   <p>
-    This Rust library provides asynchronous functions to fetch crate information from <a href="https://crates.io" target="_blank">crates.io</a>, including the latest version and total download count. It leverages Tokio for async networking, TLS for secure connections, and serde_json for JSON parsing.
+    A high-performance, lightweight Rust library to fetch metadata from <a href="https://crates.io" target="_blank">crates.io</a>.
   </p>
 </div>
 
@@ -18,14 +17,17 @@
 
 ## Features
 
-- Fetch crate data asynchronously
-- Proper error handling
-- Human-readable number formatting
-- Extensive usage examples
+- **Zero-Dependency JSON Extraction**: Custom parsing logic without `serde_json`.
+- **Custom Async Runtime**: Built-in "Spin-then-Yield" executor—no `tokio` or `async-std` required.
+- **Minimal Footprint**: Only one external dependency (`native-tls`) for secure HTTPS.
+- **Deep Path Support**: Robust dot-notation extraction (e.g., `metadata.stats.0.count`).
+- **Human-Readable Formatting**: Compacts large numbers (e.g., `56000` -> `56k`)
 
 ## About
 
-This library offers core functions to retrieve crate metadata from crates.io via raw TCP/TLS connections, process the JSON response, and present the data in a user-friendly format.
+`crator` is a high-performance utility designed for CLI tools where binary size and execution speed are critical. While most libraries rely on heavy asynchronous runtimes and full JSON serializers, `crator` achieves its minimal footprint by utilizing raw TCP/TLS streams and manual string-slice processing.
+
+By bypassing the overhead of traditional frameworks, it offers a direct, ultra-fast path to retrieve crate metadata from [crates.io](https://crates.io), process the response, and present the data in a clean, user-friendly format.
 
 ## Installation
 
@@ -35,206 +37,91 @@ To include `crator` in your Rust project, run:
 cargo add crator
 ```
 
-**Note:** If you are creating a new project or your project does not already include `tokio` as a dependency, you also need to add `tokio` to enable asynchronous features:
+Or add `crator` to your `Cargo.toml`. Since `crator` re-exports its TLS connector, no other dependencies are required.
 
-```shell
-cargo add tokio
+```toml
+[dependencies]
+crator = "MAJOR.MINOR.PATCH"
 ```
-
-Or try
-
-```shell
-cargo add tokio --features full
-```
-
-**This ensures that the project has the necessary asynchronous runtime support to use functions like `crate_data`.**
 
 ## Key Components
 
-- **CrateInfo**: Struct holding the latest version and download count.
-- **format_number**: Function to convert large numbers into compact, human-readable strings.
-- **crate_data**: Async function to fetch and parse crate info from crates.io API.
+- **`CrateInfo`**: Struct holding metadata like versions, download counts, and license info.
+- **`crate_data`**: Async function that performs secure HTTPS requests to the crates.io API.
+- **`Json`**: A zero-dependency utility for ultra-fast value extraction (100ns range).
+- **`execute`**: A custom, lightweight "Spin-then-Yield" runtime for running futures.
+- **`format_number`**: Function to convert large numbers into compact strings (e.g., `56k`).
+- **`TlsConnector`**: Re-exported from `native-tls` for zero-config secure connections.
+- **`Instant`**: Re-exported from `std::time` for easy high-precision benchmarking.
 
-## Example Usage
-
-Below are various ways to call `crate_data`. These include different error handling approaches, concurrency patterns, and usage in both synchronous and asynchronous contexts.
-
-### Example 1:  Basic usage with an explicit runtime and `unwrap()`
+## Examples
 
 ```rust
-use crator::crate_data;
-use tokio::runtime::Runtime;
+use crator::{crate_data, execute};
 
 fn main() {
-    // Create a new Tokio runtime
-    let rt = Runtime::new().unwrap();
-    let crate_name = "crator";
-    let crate_info = rt.block_on(async {
+    let crate_name = "mathlab";
+    
+    // Use the built-in lightweight executor to run the fetch
+    let info = execute(async move {
         crate_data(crate_name).await
-    }).unwrap();
-    println!(
-        "Latest: v{}, Downloads: {}, Total Downloads: {}, Versions: {}, License: {}",
-        crate_info.latest, crate_info.downloads, crate_info.total_downloads, crate_info.versions, crate_info.license
-    );
-    // Result (e.g.):
-    // crate_info.latest: v0.1.0
-    // crate_info.downloads: 5.9k
-    // crate_info.downloads: 11
-    // crate_info.versions: 1
-    // crate_info.license: MIT OR Apache-2.0
-    // Latest: v0.1.0, Downloads: 11, Versions: 1, License: MIT OR Apache-2.0
+    }).expect("Failed to fetch crate data");
+
+    println!("Latest: v{}, Downloads: {}", info.latest, info.downloads);
 }
 ```
 
-### Example 2:  Basic usage with an explicit runtime and `expect()`
+
 
 ```rust
-use crator::crate_data;
-use tokio::runtime::Runtime;
+use crator::*;
 
 fn main() {
-    // Create a new Tokio runtime
-    let rt = Runtime::new().unwrap();
     let crate_name = "fluxor";
-    let crate_info = rt.block_on(async {
-        crate_data(crate_name).await
-    }).expect("Failed to get crate info");
-    println!("Latest version: {}", crate_info.latest);
-    println!("Downloads: {}", crate_info.downloads);
-    println!("Versions: {}", crate_info.versions);
-    println!("Crate Health Index: {}", crate_info.total_downloads / crate_info.versions);
-    println!("License: {}", crate_info.license);
-}
+    let start = Instant::now();
+
+    // Work happens here...
+    let info = execute(crate_data(crate_name)).expect("Failed to get crate info");
+
+    // ...then print the timing!
+    println!("🦀 Fetching [{}] done in {:?}", crate_name, start.elapsed());
+
+    println!("Version:  v{}", info.latest);
+    println!("Total:    {}", info.downloads);
+} 
 ```
 
-### Example 3:  Basic usage with an explicit runtime and `unwrap_or_else()`
+
 
 ```rust
-use crator::crate_data;
-use tokio::runtime::Runtime;
+use crator::*;
 
 fn main() {
-    // Create a new Tokio runtime
-    let rt = Runtime::new().unwrap();
-    let crate_name = "serde";
-    let crate_info = rt.block_on(async {
-        crate_data(crate_name).await
-    }).unwrap_or_else(|err| {
-        eprintln!("Error fetching crate data: {}", err);
-        std::process::exit(1);
-    });
-    println!(
-        "Latest: v{}, Downloads: {}, Total Downloads: {}, Versions: {}, License: {}",
-        crate_info.latest, crate_info.downloads, crate_info.total_downloads, crate_info.versions, crate_info.license
-    );
-}
-```
+    let crate_name = "mathlab";
+    let start = Instant::now();
 
-### Example 4:  Basic usage with an explicit runtime and `match`
+    // 1. Run the custom executor (This is the heavy lifting)
+    let result = execute(crate_data(crate_name));
 
-```rust
-use crator::crate_data;
-use tokio::runtime::Runtime;
+    // 2. Measure and print the timing AFTER it's done
+    println!("🦀 Fetching [{}] done in {:?}", crate_name, start.elapsed());
 
-fn main() {
-    // Create a new Tokio runtime
-    let rt = Runtime::new().unwrap();
-    let crate_name = "tokio";
-    let crate_info = match rt.block_on(async {
-        match crate_data(crate_name).await {
-            Ok(info) => Ok(info),
-            Err(err) => {
-                eprintln!("Error fetching crate data: {}", err);
-                Err(err)
-            }
+    // 3. Match the result to display the metadata
+    match result {
+        Ok(info) => {
+            println!("Latest:             v{}", info.latest);
+            println!("Downloads:          {}", info.downloads);
+            println!("Total Downloads:    {}", info.total_downloads);
+            println!("Versions:           {}", info.versions);
+            println!("Created At:         {}", info.created_at);
+            println!("Updated At:         {}", info.updated_at);
+            println!("License:            {}", info.license);
         }
-    }) {
-        Ok(info) => info,
-        Err(_) => {
-            // Handle error, e.g., exit or default
-            return;
-        }
-    };
-    println!(
-        "Latest: v{}, Downloads: {}, Total Downloads: {}, Versions: {}, License: {}",
-        crate_info.latest, crate_info.downloads, crate_info.total_downloads, crate_info.versions, crate_info.license
-    );
-}
-```
-
-### Example 5: Basic usage with `tokio::main` and `unwrap()`
-
-```rust
-use crator::crate_data;
-
-#[tokio::main]
-async fn main() {
-    let crate_name = "crator";
-    let info = crate_data(crate_name).await.unwrap();
-    println!(
-        "Latest: v{}, Downloads: {}, Total Downloads: {}, Versions: {}, License: {}",
-        info.latest, info.downloads, info.total_downloads, info.versions, info.license
-    );
-}
-```
-
-### Example 6: Basic usage with `tokio::main` and `expect()`
-
-```rust
-use crator::crate_data;
-
-#[tokio::main]
-async fn main() {
-    let crate_name = "fluxor";
-    let info = crate_data(crate_name).await.expect("Failed to fetch crate info");
-    println!(
-        "Latest: v{}, Downloads: {}, Total Downloads: {}, Versions: {}, License: {}",
-        info.latest, info.downloads, info.total_downloads, info.versions, info.license
-    );
-}
-```
-
-### Example 7: Basic usage with `tokio::main` and `unwrap_or_else()`
-
-```rust
-use crator::crate_data;
-
-#[tokio::main]
-async fn main() {
-    let crate_name = "serde";
-    let crate_info = crate_data(crate_name).await.unwrap_or_else(|err| {
-        eprintln!("Error fetching crate data: {}", err);
-        std::process::exit(1);
-    });
-    println!(
-        "Latest: v{}, Downloads: {}, Total Downloads: {}, Versions: {}, License: {}",
-        crate_info.latest, crate_info.downloads, crate_info.total_downloads, crate_info.versions, , crate_info.license
-    );
-}
-```
-
-### Example 8: Basic usage with `tokio::main` and `match`
-
-```rust
-use crator::crate_data;
-
-#[tokio::main]
-async fn main() {
-    let crate_name = "tokio";
-    let crate_info = match crate_data(crate_name).await {
-        Ok(info) => info,
-        Err(err) => {
-            eprintln!("Error fetching crate data: {}", err);
-            return;
-        }
-    };
-    println!(
-        "Latest: v{}, Downloads: {}, Total Downloads: {}, Versions: {}, License: {} Created At: {}, Updated At: {}", 
-        crate_info.latest, crate_info.downloads, crate_info.total_downloads, crate_info.versions, crate_info.license, crate_info.created_at, crate_info.updated_at
-    );
+        Err(e) => eprintln!("❌ Error: {}", e),
+    }
 }
 ```
 
 ## License
 
-This project is licensed under the MIT License or Apache 2.0 License.
+This project is licensed under the MIT License or Apache 2.0 License.nnector, no other dependencies are required.

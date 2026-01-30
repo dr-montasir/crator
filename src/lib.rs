@@ -1,30 +1,228 @@
 #![doc(html_logo_url = "https://github.com/dr-montasir/crator/raw/HEAD/logo.svg")]
 #![doc = r"<div align='center'><a href='https://github.com/dr-montasir/crator' target='_blank'><img src='https://github.com/dr-montasir/crator/raw/HEAD/logo.svg' alt='crator' width='80' height='auto' /></a><br><a href='https://github.com/dr-montasir/crator' target='_blank'>CRATOR</a><br><br><b>This library offers core functions to retrieve crate metadata from crates.io via raw TCP/TLS connections, process the JSON response, and present the data in a user-friendly format.</b></div>"]
 
-/// This library provides asynchronous functions to fetch crate information from crates.io,
-/// including the latest version and download count. It uses Tokio for asynchronous networking,
-/// TLS for secure connections, and serde_json for JSON parsing.
-use tokio::net::TcpStream; // Asynchronous TCP stream
-use tokio_native_tls::TlsConnector; // Tokio-compatible TLS connector
-use native_tls::TlsConnector as NativeTlsConnector; // Native TLS connector
-use std::error::Error; // Error trait for error handling
-use serde_json::Value; // JSON value type
-use std::str; // String utilities
+//! A high-performance, lightweight library for fetching crate metadata from [crates.io](https://crates.io).
+//! 
+//! This library implements a custom, dependency-free asynchronous executor 
+//! to manage networking. It intentionally avoids heavy runtimes like `tokio`, 
+//! relying instead on the [Standard Library](https://doc.rust-lang.org) 
+//! and [native-tls](https://docs.rs) for secure HTTPS connections.
+//!
+//! ### Key Features
+//! - **Zero-Dependency JSON Extraction**: Custom parsing logic without `serde_json`.
+//! - **Custom Async Runtime**: Built-in "Spin-then-Yield" executor—no `tokio` or `async-std` required.
+//! - **Minimal Footprint**: Only one external dependency (`native-tls`) for secure HTTPS.
+//! - **Deep Path Support**: Robust dot-notation extraction (e.g., `metadata.stats.0.count`).
+//! - **Human-Readable Formatting**: Compacts large numbers (e.g., `56000` -> `56k`)
 
-/// Represents the essential information about a crate: its latest version and total downloads.
+#![doc = include_str!("../README.md")]
+
+use std::error::Error;
+use std::future::Future;
+use std::hint;
+use std::io::{Read, Write};
+use std::net::TcpStream;
+use std::pin::pin;
+use std::task::{Context, Poll, Waker};
+pub use std::time::Instant;
+use std::{thread, str, sync::Arc};
+pub use native_tls::TlsConnector;
+
+/// A lightweight, zero-dependency JSON extractor designed for maximum performance.
+/// 
+/// This struct provides a "fast-path" for parsing JSON response bodies without
+/// the overhead of full serialization libraries like [Serde](https://serde.rs). 
+/// It operates directly on string slices, making it ideal for high-speed CLI tools.
+///
+/// # Dependencies
+/// - Uses only the Rust Standard Library (`std`).
+/// - Network operations are handled by [native-tls](https://docs.rs).
+pub struct Json;
+
+impl Json {
+    /// Extracts a value from a JSON string using dot-notation.
+    ///
+    /// This method is format-agnostic, handling both minified and "pretty-printed"
+    /// JSON by ignoring whitespace and tracking bracket depth to handle nested objects.
+    ///
+    /// # Path Syntax
+    /// - **Keys**: `metadata.version`
+    /// - **Arrays**: `releases.0.v`
+    ///
+    /// # Performance
+    /// Operates in O(N) time with minimal heap allocations. 
+    ///
+    /// # Returns
+    /// Returns the value as an owned `String`, or `"N/A"` if the key is not found.
+    /// 
+    /// # Example
+    /// ```rust
+    /// use crator::Json;
+    /// 
+    /// let body = r#"{"stats": {"downloads": 56000}}"#;
+    /// let val = Json::extract(body, "stats.downloads");
+    /// assert_eq!(val, "56000");
+    /// ```
+    pub fn extract(body: &str, path: &str) -> String {
+        let mut current_body = body.to_string();
+        for part in path.split('.') {
+            let next = if let Ok(idx) = part.parse::<usize>() {
+                Self::get_array_index(&current_body, idx)
+            } else {
+                Self::get_key_value(&current_body, part)
+            };
+            if next == "N/A" { return "N/A".to_string(); }
+            current_body = next;
+        }
+        // Auto-unquote if the final result is a string
+        if current_body.starts_with('"') && current_body.ends_with('"') {
+            return current_body[1..current_body.len() - 1].to_string();
+        }
+        current_body
+    }
+
+    fn get_key_value(body: &str, key: &str) -> String {
+        let pattern = format!("\"{}\"", key);
+        if let Some(key_idx) = body.find(&pattern) {
+            let after_key = &body[key_idx + pattern.len()..];
+            // Skip the colon and find the value
+            if let Some(colon_idx) = after_key.find(':') {
+                return Self::slice_until_boundary(&after_key[colon_idx + 1..]);
+            }
+        }
+        "N/A".to_string()
+    }
+
+    fn get_array_index(body: &str, target: usize) -> String {
+        let trimmed = body.trim_start();
+        if !trimmed.starts_with('[') { return "N/A".to_string(); }
+        let mut content = &trimmed[1..];
+        for i in 0..=target {
+            content = content.trim_start();
+            let val = Self::slice_until_boundary(content);
+            if i == target { return val; }
+            let val_len = val.len();
+            if val_len == 0 { break; }
+            content = &content[val_len..].trim_start();
+            if content.starts_with(',') { content = &content[1..]; } 
+            else { break; }
+        }
+        "N/A".to_string()
+    }
+
+    fn slice_until_boundary(data: &str) -> String {
+        let s = data.trim_start();
+        if s.is_empty() { return "".to_string(); }
+        let bytes = s.as_bytes();
+        let (mut d_obj, mut d_arr, mut q) = (0, 0, false);
+        for (i, &b) in bytes.iter().enumerate() {
+            match b {
+                b'"' if i == 0 || bytes[i-1] != b'\\' => q = !q,
+                _ if q => continue, // Ignore everything inside quotes
+                b'{' => d_obj += 1,
+                b'}' => { if d_obj == 0 { return s[..i].trim().to_string(); } d_obj -= 1; }
+                b'[' => d_arr += 1,
+                b']' => { if d_arr == 0 { return s[..i].trim().to_string(); } d_arr -= 1; }
+                b',' if d_obj == 0 && d_arr == 0 => return s[..i].trim().to_string(),
+                _ if d_obj == 0 && d_arr == 0 && b.is_ascii_whitespace() && i > 0 => return s[..i].trim().to_string(),
+                _ => {}
+            }
+        }
+        s.trim_matches(|c| c == ',' || c == '}' || c == ']').trim().to_string()
+    }
+
+    /// Attempts to parse the extracted value as an `i64`. 
+    /// Returns `0` if extraction or parsing fails.
+    pub fn extract_int(body: &str, path: &str) -> i64 {
+        Self::extract(body, path).parse::<i64>().unwrap_or(0)
+    }
+
+    /// Attempts to parse the extracted value as a `u64`. 
+    /// Returns `0` if extraction or parsing fails.
+    pub fn extract_u64(body: &str, path: &str) -> u64 {
+        Self::extract(body, path).parse::<u64>().unwrap_or(0)
+    }
+
+    /// Attempts to parse the extracted value as an `f64`. 
+    /// Returns `0.0` if extraction or parsing fails.
+    pub fn extract_float(body: &str, path: &str) -> f64 {
+        Self::extract(body, path).parse::<f64>().unwrap_or(0.0)
+    }
+
+    /// Attempts to parse the extracted value as a `bool`. 
+    /// Returns `true` if the extracted value is "true" (case-insensitive).
+    pub fn extract_bool(body: &str, path: &str) -> bool {
+        Self::extract(body, path).to_lowercase() == "true"
+    }
+}
+
+/// A minimal, thread-safe Waker implementation that performs no action.
+/// 
+/// This is used by the internal executor to satisfy the `Context` requirements 
+/// of the `Future::poll` method. Since this library uses a high-performance 
+/// polling strategy, a functional wake-up notification is not required.
+struct NoopWake;
+
+impl std::task::Wake for NoopWake {
+    /// No-op: The executor polls continuously until completion.
+    fn wake(self: Arc<Self>) {}
+}
+
+/// A high-performance, single-threaded executor for running Futures to completion.
+///
+/// This runtime uses a hybrid "Spin-then-Yield" strategy:
+/// 1. **Spinning**: For the first 150,000 iterations, it uses [`hint::spin_loop`](https://doc.rust-lang.org) 
+///    to minimize latency for near-instant tasks.
+/// 2. **Yielding**: If the task remains pending, it calls [`thread::yield_now`](https://doc.rust-lang.org) 
+///    to allow the OS to schedule other threads, preventing 100% CPU starvation.
+///
+/// # Safety
+/// Uses a thread-safe [`Waker`](https://doc.rust-lang.org) backed by an `Arc<NoopWake>`, 
+/// ensuring full compliance with the [Rust Future Trait](https://doc.rust-lang.org) 
+/// without the overhead of a complex event loop.
+pub fn execute<F: Future>(future: F) -> F::Output {
+    let mut future = pin!(future);
+    
+    // Completely safe Waker using Arc
+    let waker = Waker::from(Arc::new(NoopWake));
+    let mut cx = Context::from_waker(&waker);
+    
+    let mut spins = 0u64;
+    loop {
+        match future.as_mut().poll(&mut cx) {
+            Poll::Ready(v) => return v,
+            Poll::Pending => {
+                // Efficiency: Spin briefly before yielding to the OS
+                if spins < 150_000 {
+                    hint::spin_loop();
+                    spins += 1;
+                } else {
+                    thread::yield_now();
+                    spins = 0;
+                }
+            }
+        }
+    }
+}
+
+/// Represents the essential metadata of a crate retrieved from crates.io.
+/// 
+/// This structure holds both human-readable strings for display and 
+/// raw numeric values for programmatic use.
 pub struct CrateInfo {
-    /// The latest version of the crate
+    /// The latest version of the crate (e.g., "1.5.0").
     pub latest: String,
-    /// Formatted number of downloads
+    /// Human-readable download count (e.g., "56k").
     pub downloads: String,
-    /// Total downloads
+    /// The exact total number of downloads.
     pub total_downloads: u64,
-    // Total Versions
+    /// The total number of versions ever published.
     pub versions: u64,
-    /// License of the crate
+    /// The software license (e.g., "MIT OR Apache-2.0").
     pub license: String,
-    // Date/Time
+    /// ISO 8601 formatted creation timestamp.
     pub created_at: String,
+    /// ISO 8601 formatted timestamp of the last update.
     pub updated_at: String,
 }
 
@@ -53,293 +251,120 @@ pub fn format_number(n: u64) -> String {
             format!("{:.0}k", fractional)
         }
     } else if n < 100_000 {
+        // Simplified range: handles 10k through 999k with consistent rounding
         let value = (n + 500) / 1000;
         format!("{}k", value)
     } else if n < 1_000_000 {
         let value = (n + 500) / 1000;
         format!("{}k", value)
     } else {
+        // Million range
         let value = (n + 500_000) / 1_000_000;
         format!("{}M", value)
     }
 }
 
-/// Performs an HTTP GET request over a raw TCP connection with TLS to fetch JSON data from the provided URL.
+/// Fetches crate data from the crates.io API given a crate name.
+///
+/// This function performs a secure HTTPS request using `native-tls` and parses the 
+/// results using a high-performance, zero-dependency JSON extractor.
 ///
 /// # Arguments
-/// * `url` - The URL to fetch data from.
+/// * `crate_name` - The name of the crate to fetch info for (e.g., "mathlab").
 ///
 /// # Returns
-/// * `Result<Value, Box<dyn Error>>` containing the parsed JSON response on success.
+/// * `Result<CrateInfo, Box<dyn Error>>` containing the crate's metadata.
 ///
-/// # Errors
-/// Returns an error if URL parsing, network connection, TLS handshake, or JSON parsing fails.
-async fn fetch_crate_data(url: &str) -> Result<Value, Box<dyn Error>> {
-    let url_parts = url::Url::parse(url)?;
-    let host = url_parts.host_str().ok_or("Invalid host")?;
-    let port = url_parts.port_or_known_default().ok_or("Invalid port")?;
-    let path = url_parts.path();
+/// # Examples
+///
+/// ```rust
+/// use crator::{crate_data, execute};
+///
+/// fn main() {
+///     let crate_name = "mathlab";
+///     
+///     // Use the built-in lightweight executor to run the fetch
+///     let info = execute(async move {
+///         crate_data(crate_name).await
+///     }).expect("Failed to fetch crate data");
+///
+///     println!("Latest: v{}, Downloads: {}", info.latest, info.downloads);
+/// }
+/// ```
+/// 
+/// ```rust
+/// use crator::*;
+/// 
+/// fn main() {
+///     let crate_name = "fluxor";
+///     let start = Instant::now();
+/// 
+///     // Work happens here...
+///     let info = execute(crate_data(crate_name)).expect("Failed to get crate info");
+/// 
+///     // ...then print the timing!
+///     println!("🦀 Fetching [{}] done in {:?}", crate_name, start.elapsed());
+/// 
+///     println!("Version:  v{}", info.latest);
+///     println!("Total:    {}", info.downloads);
+/// } 
+/// ```
+/// 
+/// ```rust
+/// use crator::*;
+/// 
+/// fn main() {
+///     let crate_name = "mathlab";
+///     let start = Instant::now();
+/// 
+///     // 1. Run the custom executor (This is the heavy lifting)
+///     let result = execute(crate_data(crate_name));
+/// 
+///     // 2. Measure and print the timing AFTER it's done
+///     println!("🦀 Fetching [{}] done in {:?}", crate_name, start.elapsed());
+/// 
+///     // 3. Match the result to display the metadata
+///     match result {
+///         Ok(info) => {
+///             println!("Latest:             v{}", info.latest);
+///             println!("Downloads:          {}", info.downloads);
+///             println!("Total Downloads:    {}", info.total_downloads);
+///             println!("Versions:           {}", info.versions);
+///             println!("Created At:         {}", info.created_at);
+///             println!("Updated At:         {}", info.updated_at);
+///             println!("License:            {}", info.license);
+///         }
+///         Err(e) => eprintln!("❌ Error: {}", e),
+///     }
+/// } 
+/// ```
+pub async fn crate_data(crate_name: &str) -> Result<CrateInfo, Box<dyn Error>> {
+    let host = "crates.io";
+    let path = format!("/api/v1/crates/{}", crate_name);
 
-    let stream = TcpStream::connect((host, port)).await?;
-
-    let tls_connector = TlsConnector::from(NativeTlsConnector::new()?);
-    let domain = host;
-    let mut tls_stream = tls_connector.connect(domain, stream).await?;
+    let connector = TlsConnector::new()?;
+    let stream = TcpStream::connect(format!("{}:443", host))?;
+    let mut tls_stream = connector.connect(host, stream)?;
 
     let request = format!(
-        "GET {} HTTP/1.1\r\nHost: {}\r\nUser-Agent: my_rust_client\r\nConnection: close\r\n\r\n",
+        "GET {} HTTP/1.1\r\nHost: {}\r\nUser-Agent: crator_safe/1.0\r\nConnection: close\r\n\r\n",
         path, host
     );
 
-    use tokio::io::AsyncWriteExt;
-    tls_stream.write_all(request.as_bytes()).await?;
-
-    use tokio::io::AsyncReadExt;
+    tls_stream.write_all(request.as_bytes())?;
     let mut response = Vec::new();
-    tls_stream.read_to_end(&mut response).await?;
+    tls_stream.read_to_end(&mut response)?;
 
-    let response_str = String::from_utf8_lossy(&response);
-    if let Some(pos) = response_str.find("\r\n\r\n") {
-        let body = &response_str[pos + 4..];
-        let json_value: Value = serde_json::from_str(body)?;
-        Ok(json_value)
-    } else {
-        Err("Invalid HTTP response".into())
-    }
-}
+    let full_res = String::from_utf8_lossy(&response);
+    let body = full_res.split("\r\n\r\n").nth(1).unwrap_or("");
 
-/// Fetches crate data from crates.io API given a crate name.
-///
-/// # Arguments
-/// * `crate_name` - The name of the crate to fetch info for.
-///
-/// # Returns
-/// * `Result<CrateInfo, Box<dyn Error>>` containing the crate's latest version and formatted downloads.
-///
-/// # Errors
-/// Returns an error if network request or JSON parsing fails.
-/// 
-/// # Examples
-/// 
-/// ## (a) Fn main {}
-/// 
-/// ### Example (1)
-/// 
-/// ```
-/// use crator::crate_data;
-/// use tokio::runtime::Runtime;
-///
-/// fn main() {
-///     // Create a new Tokio runtime
-///     let rt = Runtime::new().unwrap();
-///     let crate_name = "crator";
-///     let crate_info = rt.block_on(async {
-///         crate_data(crate_name).await
-///     }).unwrap();
-///     println!(
-///         "Latest: v{}, Downloads: {}, Total Downloads: {}, Versions: {}, License: {}",
-///         crate_info.latest, crate_info.downloads, crate_info.total_downloads, crate_info.versions, crate_info.license
-///     );
-///     // Result (e.g.):
-///     // crate_info.latest: v0.1.0
-///     // crate_info.downloads: 5.9k
-///     // crate_info.downloads: 11
-///     // crate_info.versions: 1
-///     // crate_info.license: MIT OR Apache-2.0
-///     // Latest: v0.1.0, Downloads: 11, Versions: 1, License: MIT OR Apache-2.0
-/// }
-/// ```
-/// 
-/// ### Example (2)
-/// 
-/// ```
-/// use crator::crate_data;
-/// use tokio::runtime::Runtime;
-///
-/// fn main() {
-///     // Create a new Tokio runtime
-///     let rt = Runtime::new().unwrap();
-///     let crate_name = "fluxor";
-///     let crate_info = rt.block_on(async {
-///         crate_data(crate_name).await
-///     }).expect("Failed to get crate info");
-///     println!("Latest version: {}", crate_info.latest);
-///     println!("Downloads: {}", crate_info.downloads);
-///     println!("Total Downloads: {}", crate_info.total_downloads);
-///     println!("Versions: {}", crate_info.versions);
-///     println!("Crate Health Index: {}", crate_info.total_downloads / crate_info.versions);
-///     println!("License: {}", crate_info.license);
-/// }
-/// ```
-/// 
-/// ### Example (3)
-/// 
-/// ```
-/// use crator::crate_data;
-/// use tokio::runtime::Runtime;
-///
-/// fn main() {
-///     // Create a new Tokio runtime
-///     let rt = Runtime::new().unwrap();
-///     let crate_name = "serde";
-///     let crate_info = rt.block_on(async {
-///         crate_data(crate_name).await
-///     }).unwrap_or_else(|err| {
-///         eprintln!("Error fetching crate data: {}", err);
-///         std::process::exit(1);
-///     });
-///     println!(
-///         "Latest: v{}, Downloads: {}, Total Downloads: {}, Versions: {}, License: {}",
-///         crate_info.latest, crate_info.downloads, crate_info.total_downloads, crate_info.versions, crate_info.license
-///     );
-/// }
-/// ```
-/// 
-/// ### Example (4)
-/// 
-/// ```
-/// use crator::crate_data;
-/// use tokio::runtime::Runtime;
-///
-/// fn main() {
-///     // Create a new Tokio runtime
-///     let rt = Runtime::new().unwrap();
-///     let crate_name = "tokio";
-///     let crate_info = match rt.block_on(async {
-///         match crate_data(crate_name).await {
-///             Ok(info) => Ok(info),
-///             Err(err) => {
-///                 eprintln!("Error fetching crate data: {}", err);
-///                 Err(err)
-///             }
-///         }
-///     }) {
-///         Ok(info) => info,
-///         Err(_) => {
-///             // Handle error, e.g., exit or default
-///             return;
-///         }
-///     };
-///     println!(
-///         "Latest: v{}, Downloads: {}, Total Downloads: {}, Versions: {}, License: {}",
-///         crate_info.latest, crate_info.downloads, crate_info.total_downloads, crate_info.versions, crate_info.license
-///     );
-/// }
-/// ```
-/// 
-/// ## (b) Async fn main {}
-/// 
-/// ### Example (5)
-/// 
-/// ```
-/// use crator::crate_data;
-///
-/// #[tokio::main]
-/// async fn main() {
-///     let crate_name = "crator";
-///     let info = crate_data(crate_name).await.unwrap();
-///     println!(
-///         "Latest: v{}, Downloads: {}, Total Downloads: {}, Versions: {}, License: {}",
-///         info.latest, info.downloads, info.total_downloads, info.versions, info.license
-///     );
-/// }
-/// ```
-/// 
-/// ### Example (6)
-/// 
-/// ```
-/// use crator::crate_data;
-///
-/// #[tokio::main]
-/// async fn main() {
-///     let crate_name = "fluxor";
-///     let info = crate_data(crate_name).await.expect("Failed to get crate info");
-///     println!(
-///         "Latest: v{}, Downloads: {}, Total Downloads: {}, Versions: {}, License: {}",
-///         info.latest, info.downloads, info.total_downloads, info.versions, info.license
-///     );
-/// }
-/// ```
-/// 
-/// ### Example (7)
-/// 
-/// ```
-/// use crator::crate_data;
-///
-/// #[tokio::main]
-/// async fn main() {
-///     let crate_name = "serde";
-///     let crate_info = crate_data(crate_name).await.unwrap_or_else(|err| {
-///         eprintln!("Error fetching crate data: {}", err);
-///         std::process::exit(1);
-///     });
-///     println!(
-///         "Latest: v{}, Downloads: {}, Total Downloads: {}, Versions: {}, License: {}",
-///         crate_info.latest, crate_info.downloads, crate_info.total_downloads, crate_info.versions, crate_info.license
-///     );
-/// }
-/// ```
-/// 
-/// ### Example (8)
-/// 
-/// ```
-/// use crator::crate_data;
-///
-/// #[tokio::main]
-/// async fn main() {
-///     let crate_name = "tokio";
-///     let crate_info = match crate_data(crate_name).await {
-///         Ok(info) => info,
-///         Err(err) => {
-///             eprintln!("Error fetching crate data: {}", err);
-///             return;
-///         }
-///     };
-///     println!(
-///         "Latest: v{}, Downloads: {}, Total Downloads: {}, Versions: {}, License: {} Created At: {}, Updated At: {}",
-///         crate_info.latest, crate_info.downloads, crate_info.total_downloads, crate_info.versions, crate_info.license, crate_info.created_at, crate_info.updated_at
-///     );
-/// }
-/// ```
-pub async fn crate_data(crate_name: &str) -> Result<CrateInfo, Box<dyn Error>> {
-    let url = format!("https://crates.io/api/v1/crates/{}", crate_name);
-    let json_value = fetch_crate_data(&url).await?;
-
-    let latest = json_value["crate"]["max_version"]
-        .as_str()
-        .unwrap_or("N/A")
-        .to_string();
-
-    let downloads = json_value["crate"]["downloads"]
-        .as_u64()
-        .unwrap_or(0);
-
-    let versions_arr = json_value["versions"].as_array();
-
+    let latest = Json::extract(body, "max_version");
+    let total_downloads = Json::extract_u64(body, "downloads");
     // Get total number of versions
-    let versions = versions_arr
-        .map_or(0, |arr| arr.len() as u64);
+    let versions = Json::extract_u64(body, "versions");
+    let license = Json::extract(body, "license");
+    let created_at = Json::extract(body, "created_at");
+    let updated_at = Json::extract(body, "updated_at");
 
-    // Get the first version object, or Null if not available
-    let version_obj = versions_arr
-        .and_then(|arr| arr.first())
-        .unwrap_or(&serde_json::Value::Null);
-
-    // Extract license from that version object
-    let license = version_obj["license"]
-        .as_str()
-        .unwrap_or("N/A")
-        .to_string();
-
-    let created_at = json_value["crate"]["created_at"]
-        .as_str()
-        .unwrap_or("N/A")
-        .to_string();
-
-    let updated_at =  json_value["crate"]["updated_at"]
-        .as_str()
-        .unwrap_or("N/A")
-        .to_string();
-
-    Ok(CrateInfo { latest, downloads: format_number(downloads), total_downloads: downloads, versions: versions, license, created_at, updated_at })
+    Ok(CrateInfo { latest, downloads: format_number(total_downloads), total_downloads: total_downloads, versions: versions, license, created_at, updated_at})
 }
