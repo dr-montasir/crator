@@ -3,17 +3,17 @@
 
 //! A high-performance, lightweight library for fetching crate metadata from [crates.io](https://crates.io).
 //! 
-//! This library implements a custom, dependency-free asynchronous executor 
-//! to manage networking. It intentionally avoids heavy runtimes like `tokio`, 
+//! This library implements a custom, dependency-free **blocking runner** 
+//! to manage networking tasks. It intentionally avoids heavy runtimes like `tokio`, 
 //! relying instead on the [Standard Library](https://doc.rust-lang.org) 
 //! and [native-tls](https://docs.rs) for secure HTTPS connections.
 //!
 //! ### Key Features
 //! - **Zero-Dependency JSON Extraction**: Custom parsing logic without `serde_json`.
-//! - **Custom Async Runtime**: Built-in "Spin-then-Yield" executor—no `tokio` or `async-std` required.
-//! - **Minimal Footprint**: Only one external dependency (`native-tls`) for secure HTTPS.
+//! - **Custom block_on Implementation**: Built-in "Spin-then-Yield" strategy for running futures to completion—no `tokio` or `async-std` required.
+//! - **Minimal Footprint**: Only one external dependency ([native-tls](https://docs.rs)) for secure HTTPS.
 //! - **Deep Path Support**: Robust dot-notation extraction (e.g., `metadata.stats.0.count`).
-//! - **Human-Readable Formatting**: Compacts large numbers (e.g., `56000` -> `56k`)
+//! - **Human-Readable Formatting**: Compacts large numbers (e.g., `56000` -> `56k`).
 
 #![doc = include_str!("../README.md")]
 
@@ -158,19 +158,20 @@ impl Json {
 
 /// A minimal, thread-safe Waker implementation that performs no action.
 /// 
-/// This is used by the internal executor to satisfy the `Context` requirements 
-/// of the `Future::poll` method. Since this library uses a high-performance 
-/// polling strategy, a functional wake-up notification is not required.
+/// This is used by the internal `block_on` runner to satisfy the `Context` requirements 
+/// of the [Future::poll](https://doc.rust-lang.org) method. 
+/// Since this library uses a high-performance polling strategy, a functional 
+/// wake-up notification is not required.
 struct NoopWake;
 
 impl std::task::Wake for NoopWake {
-    /// No-op: The executor polls continuously until completion.
+    /// No-op: The runner polls continuously using a spin-then-yield strategy until completion.
     fn wake(self: Arc<Self>) {}
 }
 
-/// A high-performance, single-threaded executor for running Futures to completion.
+/// A high-performance, single-threaded runner for driving Futures to completion.
 ///
-/// This runtime uses a hybrid "Spin-then-Yield" strategy:
+/// This function uses a hybrid "Spin-then-Yield" strategy:
 /// 1. **Spinning**: For the first 150,000 iterations, it uses [`hint::spin_loop`](https://doc.rust-lang.org) 
 ///    to minimize latency for near-instant tasks.
 /// 2. **Yielding**: If the task remains pending, it calls [`thread::yield_now`](https://doc.rust-lang.org) 
@@ -180,7 +181,7 @@ impl std::task::Wake for NoopWake {
 /// Uses a thread-safe [`Waker`](https://doc.rust-lang.org) backed by an `Arc<NoopWake>`, 
 /// ensuring full compliance with the [Rust Future Trait](https://doc.rust-lang.org) 
 /// without the overhead of a complex event loop.
-pub fn execute<F: Future>(future: F) -> F::Output {
+pub fn block_on<F: Future>(future: F) -> F::Output {
     let mut future = pin!(future);
     
     // Completely safe Waker using Arc
@@ -278,13 +279,13 @@ pub fn format_number(n: u64) -> String {
 /// # Examples
 ///
 /// ```rust
-/// use crator::{crate_data, execute};
+/// use crator::{crate_data, block_on};
 ///
 /// fn main() {
 ///     let crate_name = "mathlab";
 ///     
-///     // Use the built-in lightweight executor to run the fetch
-///     let info = execute(async move {
+///     /// Use the built-in lightweight runner to drive the fetch to completion
+///     let info = block_on(async move {
 ///         crate_data(crate_name).await
 ///     }).expect("Failed to fetch crate data");
 ///
@@ -300,13 +301,14 @@ pub fn format_number(n: u64) -> String {
 ///     let start = Instant::now();
 /// 
 ///     // Work happens here...
-///     let info = execute(crate_data(crate_name)).expect("Failed to get crate info");
+///     let info = block_on(crate_data(crate_name)).expect("Failed to get crate info");
 /// 
 ///     // ...then print the timing!
 ///     println!("🦀 Fetching [{}] done in {:?}", crate_name, start.elapsed());
 /// 
-///     println!("Version:  v{}", info.latest);
-///     println!("Total:    {}", info.downloads);
+///     println!("Latest:    v{}", info.latest);
+///     println!("Versions:  {}", info.versions);
+///     println!("Downloads: {}", info.downloads);
 /// } 
 /// ```
 /// 
@@ -317,8 +319,8 @@ pub fn format_number(n: u64) -> String {
 ///     let crate_name = "mathlab";
 ///     let start = Instant::now();
 /// 
-///     // 1. Run the custom executor (This is the heavy lifting)
-///     let result = execute(crate_data(crate_name));
+///     // 1. Run the custom runner (This is the heavy lifting)
+///     let result = block_on(crate_data(crate_name));
 /// 
 ///     // 2. Measure and print the timing AFTER it's done
 ///     println!("🦀 Fetching [{}] done in {:?}", crate_name, start.elapsed());
@@ -361,7 +363,7 @@ pub async fn crate_data(crate_name: &str) -> Result<CrateInfo, Box<dyn Error>> {
     let latest = Json::extract(body, "max_version");
     let total_downloads = Json::extract_u64(body, "downloads");
     // Get total number of versions
-    let versions = Json::extract_u64(body, "versions");
+    let versions = Json::extract_u64(body, "num_versions");
     let license = Json::extract(body, "license");
     let created_at = Json::extract(body, "created_at");
     let updated_at = Json::extract(body, "updated_at");
