@@ -51,13 +51,13 @@
 
 * Panic-free `utilities` for safely loading and managing `environment variables`.
 
-## 1. [crator::Http;](##Http)
+## 1. [crator::Http;](#http)
 
-## 2. [crator::Json;](##Json)
+## 2. [crator::Json;](#json)
 
-## 3. [crator::{CrateInfo, crate_data};](##CrateInfo)
+## 3. [crator::{CrateInfo, crate_data};](#crateinfo)
 
-## 4. [crator::{get_env, get_env_or};](##ENV)
+## 4. [crator::{get_env, get_env_or};](#env)
 
 ---
 
