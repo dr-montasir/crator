@@ -1,18 +1,26 @@
 [package]
 name = "crator"
-version = "0.7.1"
-authors = ["Montasir Mirghani <contact@montasir.me>"]
+version = "0.8.0"
+authors = ["Montasir Mirghani <montasir@webio.tech>"]
 edition = "2024"
-description = "The CRATOR library offers core functions to retrieve crate metadata from crates.io via raw TCP/TLS connections, process the JSON response, and present the data in a user-friendly format."
+description = "High-performance Rust toolkit for HTTP/HTTPS requests, JSON extraction, and environment management."
 license = "MIT OR Apache-2.0"
 homepage = "https://github.com/dr-montasir/crator"
 repository = "https://github.com/dr-montasir/crator"
 readme = "README.md"
-keywords = ["crate", "badge", "json", "version", "downloads"]
-categories = ["development-tools", "parsing", "value-formatting", "api-bindings"]
+keywords = ["http", "json", "crates", "env", "rust"]
+categories = ["development-tools", "web-programming::http-client", "parsing", "value-formatting", "api-bindings"]
+exclude = [
+    ".github/**",
+    "examples/**",
+    "tests/**",
+    "Cargo.lock",
+    "dev.md"
+]
 
 [dependencies]
-native-tls = "0.2.14"
+dotenvy = "0.15.7"
+native-tls = "0.2.18"
 
 [lib]
 name = "crator"
