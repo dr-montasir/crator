@@ -35,7 +35,7 @@
     </a>
     <h1>CRATOR</h1>
     <p>
-        <b>High-performance Rust toolkit for HTTP/HTTPS requests, JSON extraction, and environment management</b>.
+        <b>High-performance Rust toolkit for HTTP/HTTPS requests, JSON processing, and environment management</b>.
     </p>
 </div>
 
@@ -47,6 +47,8 @@
 
 * A lightweight, zero-dependency `JSON extractor` designed for maximum performance and efficiency.
 
+* High-performance, zero-dependency `rsj!` macro for declarative, JSX-like JSON generation with support for loops and conditionals.
+
 * High-performance functions to `fetch` and `interact` with structured <a href="https://crates.io" target="_blank">Crates.io API</a> `metadata`.
 
 * Panic-free `utilities` for safely loading and managing `environment variables`.
@@ -55,9 +57,11 @@
 
 ## 2. [crator::Json;](#json)
 
-## 3. [crator::{CrateInfo, crate_data};](#crateinfo)
+## 3. [crator::rsj;](#rsj)
 
-## 4. [crator::{get_env, get_env_or};](#env)
+## 4. [crator::{CrateInfo, crate_data};](#crateinfo)
+
+## 5. [crator::{get_env, get_env_or};](#env)
 
 ---
 
@@ -273,6 +277,135 @@ if parsed["unknown"].is_null() {
 
 ---
 
+## RSJ
+
+High-performance, zero-dependency `rsj!` macro for declarative, JSX-like JSON generation with support for loops and conditionals.
+
+### Overview
+
+`Crator::rsj` offers a highly efficient and flexible macro-based approach to generate **JSON** structures declaratively in Rust. Inspired by **JSX** syntax, it allows developers to craft complex **JSON** with nested objects, arrays, and dynamic content through intuitive macros. Supporting multiple indentation styles, conditional logic, and pattern-based iteration, **RSJ** is ideal for building dynamic **JSON** payloads in performance-critical applications without external dependencies. Its recursive munching logic ensures clean, readable output while maintaining maximum speed and minimal overhead.
+
+### Key Features
+
+- **Declarative syntax:** Use `JSX-like` macros for intuitive `JSON` generation.
+- **Zero dependencies:** No external crates required.
+- **Support for loops:** Generate arrays and repeated structures with pattern matching.
+- **Conditional logic:** Include or exclude parts of JSON based on runtime conditions.
+- **Multiple indentation styles:** Minified, 2-space, or 4-space `formatting options`.
+- **Nested structures:** Easily build complex nested `objects` and `arrays`.
+- **Pattern-based iteration:** Iterate over collections with pattern matching.
+- **Readable output:** Generate well-formatted `JSON` structures.
+- **Flexible customization:** Control indentation and formatting styles easily.
+- **Type flexibility:** Support for raw values, nested `objects`, `arrays`, and `literals`.
+
+---
+
+### Usage Examples
+
+#### Declarative JSON Construction with rsj!
+
+```rust
+use crator::rsj;
+
+fn main() {
+    let items = vec!["Rust", "Forge", "Crator"];
+    let is_logged_in = true;
+    let has_premium = false; // toggle: true/false
+
+    // toggle: lined, tabed, btfy2, btfy4
+    let my_json = rsj!(tabed, obj {
+        status: "success",
+        code: 200,
+        // Conditional Object with If-Else
+        if is_logged_in => { 
+            user: obj { 
+                name: "Ahmed", 
+                role: "admin" ,
+                age: 24
+            } 
+        } else { 
+            guest: obj { status: "anonymous" } 
+        },
+        // Standard If (will be empty)
+        if has_premium => { 
+            rewards: arr { "Badge", "Gift" } 
+        },
+        data: obj {
+            version: "2.1.0",
+            tags: arr {
+                for item in items => { obj { name: {item} } }
+            }
+        }
+    });
+
+    println!("{}", my_json);
+}
+```
+
+#### Product Inventory JSON Construction with rsj!
+
+```rust
+use crator::rsj;
+
+fn main() {
+    let products = vec![
+        ("Laptop", 999.99, true),
+        ("Mouse", 25.50, false),
+        ("Keyboard", 75.00, true),
+    ];
+
+    // Example 1: JSON Object root
+    let product_obj = rsj!(btfy4, obj {
+        store: "CratorTech",
+        inventory: arr {
+            for (name, price, available) in products.clone() => {
+                obj { 
+                    item: {name}, 
+                    price: {price}, 
+                    available: {available} 
+                }
+            }
+        }
+    });
+
+    // Example 2: JSON Array root
+    let product_arr = rsj!(btfy4, arr {
+        for (name, price, available) in products => {
+            obj { 
+                item: {name}, 
+                price: {price}, 
+                available: {available} 
+            }
+        }
+    });
+
+    println!("--- OBJECT ROOT ---\n{}\n", product_obj);
+    println!("--- ARRAY ROOT ---\n{}", product_arr);
+}
+```
+
+### Features
+
+- **Conditional Inclusion:** Use if condition => { ... } to include keys or objects based on runtime conditions.
+- **Loops & Iteration:** Generate arrays dynamically with for item in collection => { ... }.
+- **Flexible Formatting:** Toggle formatting styles with options like btfy2, btfy4, lined, tabed.
+- **Nested Structures:** Build complex nested JSON objects and arrays seamlessly.
+- **Concise Syntax:** Minimalist macro syntax for clear and readable JSON generation.
+- **Type Handling:** Supports string, number, boolean, object, array, and null types seamlessly.
+- **Custom Formatting:** Easily switch between compact and pretty-printed JSON output.
+- **No External Dependencies:** Pure Rust implementation with zero external crates.
+
+### Internal Architecture
+
+* Implements a macro-based domain-specific language (DSL) to interpret and generate JSON structures at compile time.
+* Supports conditional keys and objects through runtime boolean expressions.
+* Uses internal recursive macros to handle nesting, looping, and conditional logic.
+* Converts macro input into an intermediate representation that is then serialized into JSON text.
+* Optimized for compile-time parsing and minimal runtime overhead, producing efficient JSON strings.
+* Designed for flexibility, allowing custom formatting styles and dynamic data inclusion without sacrificing performance.
+
+---
+
 ## CrateInfo
 
 High-performance functions to `fetch` and `interact` with structured <a href="https://crates.io" target="_blank">Crates.io API</a> `metadata`.
@@ -440,6 +573,17 @@ let max_connections = get_env_parse_or("MAX_CONN", 100);
 
 ---
 
+## Contributing
+
+Contributions are welcome! If you'd like to contribute to Crator, please fork the repository, create a new branch, and submit a pull request. For larger changes, please discuss your ideas via an issue before implementing them.
+
+---
+
 ## License
 
-This project is licensed under the MIT License or Apache 2.0 License.nnector, no other dependencies are required.
+Fluxor is licensed under either of the following licenses:
+
+- MIT License
+- Apache License, Version 2.0
+
+See the LICENSE file for more details.

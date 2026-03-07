@@ -1,9 +1,9 @@
 [package]
 name = "crator"
-version = "0.8.0"
+version = "0.9.0"
 authors = ["Montasir Mirghani <montasir@webio.tech>"]
 edition = "2024"
-description = "High-performance Rust toolkit for HTTP/HTTPS requests, JSON extraction, and environment management."
+description = "High-performance Rust toolkit for HTTP/HTTPS requests, JSON processing, and environment management."
 license = "MIT OR Apache-2.0"
 homepage = "https://github.com/dr-montasir/crator"
 repository = "https://github.com/dr-montasir/crator"
