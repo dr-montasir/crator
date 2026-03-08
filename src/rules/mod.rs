@@ -68,44 +68,44 @@ macro_rules! json_muncher {
         $crate::json_muncher!($m, $d, $tag, [$($children,)* joined_items], $($rest)*)
     }};
 
-    // 3. IF / ELSE
-    ($m:expr, $d:expr, $tag:ident, [$($children:expr),*], if $cond:expr => { $key:ident : $it:ident { $($ic:tt)* } } else { $e_key:ident : $e_it:ident { $($e_ic:tt)* } } $($rest:tt)*) => {{
+    // 3. IF / ELSE - (Literal and Ident keys)
+    ($m:expr, $d:expr, $tag:ident, [$($children:expr),*], if $cond:expr => { $key:tt : $it:ident { $($ic:tt)* } } else { $e_key:tt : $e_it:ident { $($e_ic:tt)* } } $($rest:tt)*) => {{
         let child_indent = match $m { 2 => "  ".repeat($d + 1), 4 => "    ".repeat($d + 1), _ => String::new() };
         let result = if $cond {
             let inner = $crate::json_muncher!($m, $d + 1, $it, [], $($ic)*).trim().to_string();
-            format!("{}\"{}\": {}", child_indent, stringify!($key), inner)
+            format!("{}\"{}\": {}", child_indent, stringify!($key).trim_matches('"'), inner)
         } else {
             let inner = $crate::json_muncher!($m, $d + 1, $e_it, [], $($e_ic)*).trim().to_string();
-            format!("{}\"{}\": {}", child_indent, stringify!($e_key), inner)
+            format!("{}\"{}\": {}", child_indent, stringify!($e_key).trim_matches('"'), inner)
         };
         $crate::json_muncher!($m, $d, $tag, [$($children,)* result], $($rest)*)
     }};
 
-    ($m:expr, $d:expr, $tag:ident, [$($children:expr),*], if $cond:expr => { $key:ident : $it:ident { $($ic:tt)* } } $($rest:tt)*) => {{
+    ($m:expr, $d:expr, $tag:ident, [$($children:expr),*], if $cond:expr => { $key:tt : $it:ident { $($ic:tt)* } } $($rest:tt)*) => {{
         let mut result = String::new();
         if $cond {
             let child_indent = match $m { 2 => "  ".repeat($d + 1), 4 => "    ".repeat($d + 1), _ => String::new() };
             let inner = $crate::json_muncher!($m, $d + 1, $it, [], $($ic)*).trim().to_string();
-            result = format!("{}\"{}\": {}", child_indent, stringify!($key), inner);
+            result = format!("{}\"{}\": {}", child_indent, stringify!($key).trim_matches('"'), inner);
         }
         $crate::json_muncher!($m, $d, $tag, [$($children,)* result], $($rest)*)
     }};
 
-    // 4. NESTED OBJECT/ARRAY
-    ($m:expr, $d:expr, $tag:ident, [$($children:expr),*], $inner_key:ident : $inner_tag:ident { $($inner_content:tt)* } $($rest:tt)*) => {{
+    // 4. NESTED OBJECT/ARRAY - (Literal and Ident keys)
+    ($m:expr, $d:expr, $tag:ident, [$($children:expr),*], $inner_key:tt : $inner_tag:ident { $($inner_content:tt)* } $($rest:tt)*) => {{
         let child_indent = match $m { 2 => "  ".repeat($d + 1), 4 => "    ".repeat($d + 1), _ => String::new() };
         let inner = $crate::json_muncher!($m, $d + 1, $inner_tag, [], $($inner_content)*).trim().to_string();
-        let val = format!("{}\"{}\": {}", child_indent, stringify!($inner_key), inner);
+        let val = format!("{}\"{}\": {}", child_indent, stringify!($inner_key).trim_matches('"'), inner);
         $crate::json_muncher!($m, $d, $tag, [$($children,)* val], $($rest)*)
     }};
 
-    // 5. STANDARD FIELDS
-    ($m:expr, $d:expr, $tag:ident, [$($children:expr),*], $key:ident : $val:expr, $($rest:tt)+) => {{
+    // 5. STANDARD FIELDS - (Literal and Ident keys)
+    ($m:expr, $d:expr, $tag:ident, [$($children:expr),*], $key:tt : $val:expr, $($rest:tt)+) => {{
         let child_indent = match $m { 2 => "  ".repeat($d + 1), 4 => "    ".repeat($d + 1), _ => String::new() };
         let f = $crate::rules::format_json_field(stringify!($key), &format!("{}", $val), &child_indent);
         $crate::json_muncher!($m, $d, $tag, [$($children,)* f], $($rest)*)
     }};
-    ($m:expr, $d:expr, $tag:ident, [$($children:expr),*], $key:ident : $val:expr) => {{
+    ($m:expr, $d:expr, $tag:ident, [$($children:expr),*], $key:tt : $val:expr) => {{
         let child_indent = match $m { 2 => "  ".repeat($d + 1), 4 => "    ".repeat($d + 1), _ => String::new() };
         let f = $crate::rules::format_json_field(stringify!($key), &format!("{}", $val), &child_indent);
         $crate::json_muncher!($m, $d, $tag, [$($children,)* f], )
@@ -196,6 +196,29 @@ macro_rules! json_muncher {
 ///             price: {price}, 
 ///             available: {available} 
 ///         }
+///     }
+/// });
+/// ```
+/// 
+/// ### 3. Flexible Keys (Spaces & Hyphens)
+/// ```rust
+/// use crator::rsj;
+/// 
+/// let is_active = true;
+/// let advanced_json = rsj!(btfy2, obj {
+///     "API Version": "1.0.0",     // Key with spaces
+///     "x-api-key": "secret-123",  // Key with hyphens
+/// 
+///     if is_active => { 
+///         "user-session": obj {   // Quoted key in conditional
+///             id: 101,
+///             status: "verified"
+///         } 
+///     },
+/// 
+///     data: obj {                 // Mixing quoted and unquoted
+///         "Content-Type": "application/json",
+///         tags: arr { "rust", "json", "crator" }
 ///     }
 /// });
 /// ```

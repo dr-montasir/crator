@@ -297,6 +297,7 @@ High-performance, zero-dependency `rsj!` macro for declarative, JSX-like JSON ge
 - **Readable output:** Generate well-formatted `JSON` structures.
 - **Flexible customization:** Control indentation and formatting styles easily.
 - **Type flexibility:** Support for raw values, nested `objects`, `arrays`, and `literals`.
+- **Flexible keys:** Support for both identifiers and quoted strings, enabling keys with `spaces`, `hyphens`, and `special characters`.
 
 ---
 
@@ -384,11 +385,40 @@ fn main() {
 }
 ```
 
+#### Flexible Keys (Spaces & Hyphens)
+
+```rust
+use crator::rsj;
+
+fn main() {
+    let is_active = true;
+    let advanced_json = rsj!(btfy2, obj {
+        "API Version": "1.0.2",     // Key with spaces
+        "x-api-key": "secret-123",  // Key with hyphens
+        
+        if is_active => { 
+            "user-session": obj {   // Quoted key in conditional
+                id: 101,
+                status: "verified"
+            } 
+        },
+        
+        data: obj {                 // Mixing quoted and unquoted
+            "Content-Type": "application/json",
+            tags: arr { "rust", "json", "crator" }
+        }
+    });
+
+    println!("--- ADVANCED JSON ---\n{}\n", advanced_json);
+}
+```
+
 ### Features
 
-- **Conditional Inclusion:** Use if condition => { ... } to include keys or objects based on runtime conditions.
-- **Loops & Iteration:** Generate arrays dynamically with for item in collection => { ... }.
-- **Flexible Formatting:** Toggle formatting styles with options like btfy2, btfy4, lined, tabed.
+- **Flexible Keys:** Support both standard identifiers and quoted strings, allowing keys with `spaces`, `hyphens`, and `special characters`.
+- **Conditional Inclusion:** Use `if condition => { ... }` to include keys or objects based on runtime conditions.
+- **Loops & Iteration:** Generate arrays dynamically with `for item in collection => { ... }`.
+- **Flexible Formatting:** Toggle formatting styles with options like `btfy2`, `btfy4`, `lined`, `tabed`.
 - **Nested Structures:** Build complex nested JSON objects and arrays seamlessly.
 - **Concise Syntax:** Minimalist macro syntax for clear and readable JSON generation.
 - **Type Handling:** Supports string, number, boolean, object, array, and null types seamlessly.
@@ -397,12 +427,15 @@ fn main() {
 
 ### Internal Architecture
 
-* Implements a macro-based domain-specific language (DSL) to interpret and generate JSON structures at compile time.
-* Supports conditional keys and objects through runtime boolean expressions.
-* Uses internal recursive macros to handle nesting, looping, and conditional logic.
-* Converts macro input into an intermediate representation that is then serialized into JSON text.
-* Optimized for compile-time parsing and minimal runtime overhead, producing efficient JSON strings.
-* Designed for flexibility, allowing custom formatting styles and dynamic data inclusion without sacrificing performance.
+* **Macro-based DSL:** Implements a domain-specific language to interpret and generate JSON structures at compile time.
+* **Flexible Token Parsing:** Uses Token Tree (:tt) matching to support both standard identifiers and quoted string literals for keys.
+* **String Normalization:** Employs compile-time stringification and normalization to ensure keys with spaces or hyphens are formatted correctly without double-quoting.
+* **Conditional Logic:** Supports conditional keys and objects through runtime boolean expressions.
+* Recursive Processing: Uses internal recursive "muncher" macros to handle deep nesting, looping, and conditional branches.
+* **Intermediate Representation:** Converts macro input into a structured representation before final serialization into JSON text.
+**Dynamic Data Inclusion:** Supports seamless injection of variables and expressions using {variable} syntax within both keys and values.
+* **Performance Optimized:** Focused on compile-time parsing and minimal runtime overhead, producing efficient, pre-formatted JSON strings.
+* **Zero-Dependency:** Pure Rust implementation ensuring a tiny footprint and fast compilation.
 
 ---
 
