@@ -614,7 +614,7 @@ Contributions are welcome! If you'd like to contribute to Crator, please fork th
 
 ## License
 
-Fluxor is licensed under either of the following licenses:
+Crator is licensed under either of the following licenses:
 
 - MIT License
 - Apache License, Version 2.0
