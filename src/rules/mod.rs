@@ -65,13 +65,14 @@ macro_rules! json_muncher {
             items.push(format!("{}{}", child_indent, inner));
         }
         let joined_items = items.join(&format!(",{}", if $m > 0 { "\n" } else { "" }));
-        $crate::json_muncher!($m, $d, $tag, [$($children,)* joined_items], $($rest)*)
+        // Ensure joined_items is passed as a single String
+        $crate::json_muncher!($m, $d, $tag, [$($children,)* joined_items.to_string()], $($rest)*)
     }};
 
     // 3. IF / ELSE - (Literal and Ident keys)
     ($m:expr, $d:expr, $tag:ident, [$($children:expr),*], if $cond:expr => { $key:tt : $it:ident { $($ic:tt)* } } else { $e_key:tt : $e_it:ident { $($e_ic:tt)* } } $($rest:tt)*) => {{
         let child_indent = match $m { 2 => "  ".repeat($d + 1), 4 => "    ".repeat($d + 1), _ => String::new() };
-        let result = if $cond {
+        let result: String = if $cond {
             let inner = $crate::json_muncher!($m, $d + 1, $it, [], $($ic)*).trim().to_string();
             format!("{}\"{}\": {}", child_indent, stringify!($key).trim_matches('"'), inner)
         } else {
@@ -81,6 +82,8 @@ macro_rules! json_muncher {
         $crate::json_muncher!($m, $d, $tag, [$($children,)* result], $($rest)*)
     }};
 
+    // 4. OPTIONAL IF - Handles a single 'if' without an 'else'.
+    // If the condition is false, it generates an empty String which the termination rule ignores.
     ($m:expr, $d:expr, $tag:ident, [$($children:expr),*], if $cond:expr => { $key:tt : $it:ident { $($ic:tt)* } } $($rest:tt)*) => {{
         let mut result = String::new();
         if $cond {
@@ -91,7 +94,17 @@ macro_rules! json_muncher {
         $crate::json_muncher!($m, $d, $tag, [$($children,)* result], $($rest)*)
     }};
 
-    // 4. NESTED OBJECT/ARRAY - (Literal and Ident keys)
+    // 5. EMPTY COLLECTIONS - Handles empty attributes like 'key: arr {}' or 'key: obj {}'.
+    // Converts them directly to '[]' or '{}' to support empty lists and objects.
+    ($m:expr, $d:expr, $tag:ident, [$($children:expr),*], $inner_key:tt : $inner_tag:ident {} $($rest:tt)*) => {{
+        let child_indent = match $m { 2 => "  ".repeat($d + 1), 4 => "    ".repeat($d + 1), _ => String::new() };
+        let tag_str = stringify!($inner_tag);
+        let brackets = if tag_str == "arr" || tag_str == "list" { "[]" } else { "{}" };
+        let val = format!("{}\"{}\": {}", child_indent, stringify!($inner_key).trim_matches('"'), brackets);
+        $crate::json_muncher!($m, $d, $tag, [$($children,)* val.to_string()], $($rest)*)
+    }};
+
+    // 6. NESTED OBJECT/ARRAY - (Literal and Ident keys)
     ($m:expr, $d:expr, $tag:ident, [$($children:expr),*], $inner_key:tt : $inner_tag:ident { $($inner_content:tt)* } $($rest:tt)*) => {{
         let child_indent = match $m { 2 => "  ".repeat($d + 1), 4 => "    ".repeat($d + 1), _ => String::new() };
         let inner = $crate::json_muncher!($m, $d + 1, $inner_tag, [], $($inner_content)*).trim().to_string();
@@ -99,7 +112,7 @@ macro_rules! json_muncher {
         $crate::json_muncher!($m, $d, $tag, [$($children,)* val], $($rest)*)
     }};
 
-    // 5. STANDARD FIELDS - (Literal and Ident keys)
+    // 7. STANDARD FIELDS - (Literal and Ident keys)
     ($m:expr, $d:expr, $tag:ident, [$($children:expr),*], $key:tt : $val:expr, $($rest:tt)+) => {{
         let child_indent = match $m { 2 => "  ".repeat($d + 1), 4 => "    ".repeat($d + 1), _ => String::new() };
         let f = $crate::rules::format_json_field(stringify!($key), &format!("{}", $val), &child_indent);
@@ -111,7 +124,7 @@ macro_rules! json_muncher {
         $crate::json_muncher!($m, $d, $tag, [$($children,)* f], )
     }};
 
-    // 6. LITERALS / BRACED
+    // 8. LITERALS / BRACED
     ($m:expr, $d:expr, $tag:ident, [$($children:expr),*], $text:literal $($rest:tt)*) => {{
         let child_indent = match $m { 2 => "  ".repeat($d + 1), 4 => "    ".repeat($d + 1), _ => String::new() };
         $crate::json_muncher!($m, $d, $tag, [$($children,)* format!("{}\"{}\"", child_indent, $text)], $($rest)*)
@@ -120,7 +133,7 @@ macro_rules! json_muncher {
         $crate::json_muncher!($m, $d, $tag, [$($children,)* $text], $($rest)*)
     };
 
-    // 7. CLEANUP
+    // 9. CLEANUP
     ($m:expr, $d:expr, $tag:ident, [$($children:expr),*], , $($rest:tt)*) => {
         $crate::json_muncher!($m, $d, $tag, [$($children),*], $($rest)*)
     };
@@ -143,6 +156,7 @@ macro_rules! json_muncher {
 /// let my_json = rsj!(tabed, obj {
 ///     status: "success",
 ///     code: 200,
+///     activity: arr {},
 ///     if is_logged_in => { 
 ///         user: obj { 
 ///             name: "Ahmed", 

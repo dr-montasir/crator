@@ -1,6 +1,6 @@
 [package]
 name = "crator"
-version = "1.0.1"
+version = "1.1.0"
 authors = ["Montasir Mirghani <montasir@webio.tech>"]
 edition = "2024"
 description = "High-performance Rust toolkit for HTTP/HTTPS requests, JSON processing, and environment management."

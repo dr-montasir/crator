@@ -317,6 +317,8 @@ fn main() {
     let my_json = rsj!(tabed, obj {
         status: "success",
         code: 200,
+        // Empty Collection
+        activity: arr {},
         // Conditional Object with If-Else
         if is_logged_in => { 
             user: obj { 
