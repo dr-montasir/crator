@@ -415,6 +415,49 @@ fn main() {
 }
 ```
 
+#### Embedding Complex Scripts (JavaScript & Code Injection)
+
+```rust
+use crator::{rsj, to_str, to_raw};
+
+fn main() {
+    // Vanilla JavaScript configuration embedded 
+    let raw_lib_content = r###"document.addEventListener('DOMContentLoaded', () => {
+        const app = {
+            // State variables
+            appName: 'my "app" name',
+
+            // Core utility function for handling telemetry data
+            init() {
+                console.log("Telemetry systems are online!");
+            }
+        };
+        app.init();
+    });"###;
+
+    // Step 1: Escape the JavaScript content using to_str (Similar to JSON.stringify string encoding).
+    // This safely handles internal quotes and newlines so they don't break the JSON structure.
+    let lib_content = to_str(raw_lib_content);
+
+    // Step 2: Safe JSON Generation via the declarative rsj! macro.
+    // Because lib_content starts with text ('document'), the format engine correctly
+    // wraps the value in quotes as a valid JSON string.
+    let initial_json_config = rsj!(tabed, obj {
+        name: "my lib name",
+        lib: lib_content
+    });
+
+    println!("{}", initial_json_config);
+
+    // Step 3: Restore the script back to execution-ready text (Similar to JSON.parse string mechanics).
+    // This reverses the escape sequences, stripping out the JSON formatting layers.
+    let clean_javascript = to_raw(&lib_content);
+
+    println!("--- Restored Clean JavaScript Code ---");
+    println!("{}", clean_javascript);
+}
+```
+
 ### Features
 
 - **Flexible Keys:** Support both standard identifiers and quoted strings, allowing keys with `spaces`, `hyphens`, and `special characters`.
@@ -425,6 +468,7 @@ fn main() {
 - **Concise Syntax:** Minimalist macro syntax for clear and readable JSON generation.
 - **Type Handling:** Supports string, number, boolean, object, array, and null types seamlessly.
 - **Custom Formatting:** Easily switch between compact and pretty-printed JSON output.
+- **Safe Content Escaping:** Utilities (`to_str` / `to_raw`) to easily encode and restore multi-line strings, code snippets, or configuration objects inside JSON values without syntax corruption.
 - **No External Dependencies:** Pure Rust implementation with zero external crates.
 
 ### Internal Architecture
@@ -433,9 +477,10 @@ fn main() {
 * **Flexible Token Parsing:** Uses Token Tree (:tt) matching to support both standard identifiers and quoted string literals for keys.
 * **String Normalization:** Employs compile-time stringification and normalization to ensure keys with spaces or hyphens are formatted correctly without double-quoting.
 * **Conditional Logic:** Supports conditional keys and objects through runtime boolean expressions.
-* Recursive Processing: Uses internal recursive "muncher" macros to handle deep nesting, looping, and conditional branches.
+* **Recursive Processing:** Uses internal recursive "muncher" macros to handle deep nesting, looping, and conditional branches.
 * **Intermediate Representation:** Converts macro input into a structured representation before final serialization into JSON text.
-**Dynamic Data Inclusion:** Supports seamless injection of variables and expressions using {variable} syntax within both keys and values.
+* **Dynamic Data Inclusion:** Supports seamless injection of variables and expressions using {variable} syntax within both keys and values.
+* **Bi-directional String Sanitization:** Fast, single-pass character escaping logic designed to mimic `JSON.stringify` and `JSON.parse` text layers natively within the crate.
 * **Performance Optimized:** Focused on compile-time parsing and minimal runtime overhead, producing efficient, pre-formatted JSON strings.
 * **Zero-Dependency:** Pure Rust implementation ensuring a tiny footprint and fast compilation.
 

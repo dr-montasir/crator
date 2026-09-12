@@ -32,6 +32,94 @@ pub fn format_json_field(k: &str, v: &str, indent: &str) -> String {
     format!("{}{}", indent, formatted)
 }
 
+// Utils:
+
+/// Escapes a raw string slice into a valid JSON string payload.
+///
+/// This function acts like the string serialization layer of JavaScript's `JSON.stringify()`.
+/// It converts control characters (`\n`, `\t`, `\r`), inner quotes (`"`), and backslashes (`\`)
+/// into their safe JSON escape sequences.
+///
+/// ### When to use:
+/// Use this whenever you want to embed raw, multi-line blocks of code (JavaScript, HTML, GLSL, Bash scripts) 
+/// as a value inside an `rsj!` object or array structure.
+///
+/// ### Performance:
+/// Allocates a single `String` with pre-allocated capacity equal to the input length to minimize re-allocations.
+pub fn to_str(input: &str) -> String {
+    let mut escaped = String::with_capacity(input.len());
+    
+    for c in input.chars() {
+        match c {
+            '"' => escaped.push_str("\\\""),
+            '\\' => escaped.push_str("\\\\"),
+            '\n' => escaped.push_str("\\n"),
+            '\r' => escaped.push_str("\\r"),
+            '\t' => escaped.push_str("\\t"),
+            // Handle control characters if present
+            _ if c.is_ascii_control() => {
+                escaped.push_str(&format!("\\u{:04x}", c as u32));
+            }
+            _ => escaped.push(c),
+        }
+    }
+    
+    escaped
+}
+
+/// Unescapes a JSON-escaped string back into its original raw plaintext representation.
+///
+/// This function acts like the string deserialization layer of JavaScript's `JSON.parse()`.
+/// It handles standard JSON escape codes (`\"`, `\\`, `\/`, `\b`, `\f`, `\n`, `\r`, `\t`) 
+/// and fully decodes hex-encoded unicode escape characters (`\uXXXX`).
+///
+/// ### When to use:
+/// Use this when pulling an embedded script or complex text block out of a processed JSON string
+/// to restore it back into its raw, runnable layout.
+pub fn to_raw(input: &str) -> String {
+    let mut unescaped = String::with_capacity(input.len());
+    let mut chars = input.chars().peekable();
+
+    while let Some(c) = chars.next() {
+        if c == '\\' {
+            if let Some(&next_c) = chars.peek() {
+                match next_c {
+                    '"'  => { unescaped.push('"'); chars.next(); }
+                    '\\' => { unescaped.push('\\'); chars.next(); }
+                    '/'  => { unescaped.push('/'); chars.next(); }
+                    'b'  => { unescaped.push('\x08'); chars.next(); }
+                    'f'  => { unescaped.push('\x0c'); chars.next(); }
+                    'n'  => { unescaped.push('\n'); chars.next(); }
+                    'r'  => { unescaped.push('\r'); chars.next(); }
+                    't'  => { unescaped.push('\t'); chars.next(); }
+                    'u'  => {
+                        chars.next(); // consume 'u'
+                        // Extract next 4 hex hex-digits
+                        let mut hex_str = String::new();
+                        for _ in 0..4 {
+                            if let Some(hc) = chars.next() {
+                                hex_str.push(hc);
+                            }
+                        }
+                        if let Ok(code_point) = u32::from_str_radix(&hex_str, 16) {
+                            if let Some(decoded_char) = std::char::from_u32(code_point) {
+                                unescaped.push(decoded_char);
+                            }
+                        }
+                    }
+                    _ => unescaped.push('\\'), // Standalone backslash if unmapped
+                }
+            } else {
+                unescaped.push('\\');
+            }
+        } else {
+            unescaped.push(c);
+        }
+    }
+
+    unescaped
+}
+
 /// The core muncher macro for generating JSON-like markup.
 ///
 /// Primarily invoked by the `rsj!` macro to handle recursive nesting, 
