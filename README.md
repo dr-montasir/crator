@@ -316,7 +316,7 @@ fn main() {
     // toggle: lined, tabed, btfy2, btfy4
     let my_json = rsj!(tabed, obj {
         status: "success",
-        code: 200,
+        code: 200 as u8,
         // Empty Collection
         activity: arr {},
         // Conditional Object with If-Else
@@ -324,7 +324,7 @@ fn main() {
             user: obj { 
                 name: "Ahmed", 
                 role: "admin" ,
-                age: 24
+                age: 24 as u8
             } 
         } else { 
             guest: obj { status: "anonymous" } 
@@ -400,7 +400,7 @@ fn main() {
         
         if is_active => { 
             "user-session": obj {   // Quoted key in conditional
-                id: 101,
+                id: 101 as u128,
                 status: "verified"
             } 
         },
@@ -458,6 +458,40 @@ fn main() {
 }
 ```
 
+#### Numeric Values and Numeric Strings
+
+```rust
+use crator::rsj;
+fn main() {
+    let json = rsj!(tabed, obj {
+            str_int: "2",                   // JSON string: "2"
+            str_negative_int: "-2",         // JSON string: "-2"
+            str_float: "2.0",               // JSON string: "2.0"
+            str_negative_float: "-2.0",     // JSON string: "-2.0"
+            float_64: 2.0 as f64,           // JSON number: 2
+            float_32: 2.0 as f32,           // JSON number: 2
+            unsigned_8: 2.0 as u8,          // JSON number: 2
+            negative_float_32: -2.0 as f32, // JSON number: -2
+            negative_i8: -2 as i8,          // JSON number: -2
+            negative_float_64: -2.0 as f64  // JSON number: -2
+        }
+    );
+    println!("{}", json);
+    // {
+    //   "str_int": "2",
+    //   "str_negative_int": "-2",
+    //   "str_float": "2.0",
+    //   "str_negative_float": "-2.0",
+    //   "float_64": 2,
+    //   "float_32": 2,
+    //   "unsigned_8": 2,
+    //   "negative_float_32": -2,
+    //   "negative_i8": -2,
+    //   "negative_float_64": -2
+    // }
+}
+```
+
 ### Features
 
 - **Flexible Keys:** Support both standard identifiers and quoted strings, allowing keys with `spaces`, `hyphens`, and `special characters`.
@@ -467,6 +501,7 @@ fn main() {
 - **Nested Structures:** Build complex nested JSON objects and arrays seamlessly.
 - **Concise Syntax:** Minimalist macro syntax for clear and readable JSON generation.
 - **Type Handling:** Supports string, number, boolean, object, array, and null types seamlessly.
+- **Numeric Values and Numeric Strings:** Numeric-looking strings such as "2" and "2.0" remain `JSON strings`, while Rust numeric values are emitted as `JSON numbers`. Use as to specify the type of `numeric literals`, such as `2.0 as f64` or `-2 as i8`, to avoid compiler errors with this macro syntax.
 - **Custom Formatting:** Easily switch between compact and pretty-printed JSON output.
 - **Safe Content Escaping:** Utilities (`to_str` / `to_raw`) to easily encode and restore multi-line strings, code snippets, or configuration objects inside JSON values without syntax corruption.
 - **No External Dependencies:** Pure Rust implementation with zero external crates.
@@ -482,6 +517,7 @@ fn main() {
 * **Dynamic Data Inclusion:** Supports seamless injection of variables and expressions using {variable} syntax within both keys and values.
 * **Bi-directional String Sanitization:** Fast, single-pass character escaping logic designed to mimic `JSON.stringify` and `JSON.parse` text layers natively within the crate.
 * **Performance Optimized:** Focused on compile-time parsing and minimal runtime overhead, producing efficient, pre-formatted JSON strings.
+* **Numeric Value Parsing:** Distinguishes numeric strings from numeric values: quoted numbers remain J`SON strings`, while typed numeric expressions such as `2.0 as f64` are emitted as `JSON numbers`. Use as with `numeric literals` where needed to avoid compiler errors.
 * **Zero-Dependency:** Pure Rust implementation ensuring a tiny footprint and fast compilation.
 
 ---

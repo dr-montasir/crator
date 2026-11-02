@@ -12,5 +12,5 @@ mod info;
 pub use config::{get_env, get_env_or, get_env_parse, get_env_parse_or, init_env};
 pub use http::Http;
 pub use json::Json;
-pub use rules::{format_json_field, to_raw, to_str};
+pub use rules::{format_json_field, to_str, to_raw, quote_json_string, value_to_json};
 pub use info::{CrateInfo, crate_data, format_number};
